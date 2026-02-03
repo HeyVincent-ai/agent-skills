@@ -1,6 +1,14 @@
 ---
 name: Agent Wallet
-description: The agent's wallet. Use this skill to safely create a wallet the agent can use for transfers, swaps, and any EVM chain transaction.
+description: |
+  The agent's wallet for EVM chain transactions. Use this skill when users want to
+  create a wallet, transfer tokens, swap on DEXs, or interact with smart contracts.
+  Triggers on "wallet", "create wallet", "transfer ETH", "swap tokens", "send transaction",
+  "check balance", "EVM wallet".
+allowed-tools: Read, Write, Bash(curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 ---
 
 # Agent Wallet
@@ -137,6 +145,42 @@ curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/send-transaction" \
     "value": "0"
   }'
 ```
+
+## Output Format
+
+Successful API responses return JSON with:
+
+```json
+{
+  "success": true,
+  "data": {
+    "transactionHash": "0x...",
+    "status": "confirmed"
+  }
+}
+```
+
+For pending approval transactions:
+
+```json
+{
+  "success": true,
+  "status": "pending_approval",
+  "message": "Transaction requires owner approval via Telegram"
+}
+```
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check Bearer token is correct |
+| `403 Policy Violation` | Transaction blocked by policy | User must adjust policies at heyvincent.ai |
+| `400 Insufficient Balance` | Not enough tokens | Check balances before transfer |
+| `429 Rate Limited` | Too many requests | Wait and retry with backoff |
+| `pending_approval` | Requires human approval | User will receive Telegram notification |
+
+If a transaction is rejected, inform the user to check their policy settings at `https://heyvincent.ai`.
 
 ## Policies
 
