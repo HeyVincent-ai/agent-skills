@@ -24,7 +24,7 @@ Authorization: Bearer <API_KEY>
 Create a new smart account wallet for your agent. This generates a private key server-side (you never see it), creates a ZeroDev smart account, and returns an API key for the agent plus a claim URL for the wallet owner.
 
 ```bash
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/secrets" \
+curl -X POST "https://heyvincent.ai/api/secrets" \
   -H "Content-Type: application/json" \
   -d '{
     "type": "EVM_WALLET",
@@ -46,27 +46,29 @@ After creating, tell the user:
 ### 2. Get Wallet Address
 
 ```bash
-curl -X GET "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/address" \
+curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/address" \
   -H "Authorization: Bearer <API_KEY>"
 ```
 
 ### 3. Check Balances
 
 ```bash
-# Native balance only
-curl -X GET "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/balance" \
+# Get all token balances across all supported chains (ETH, WETH, USDC, etc.)
+curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/balances" \
   -H "Authorization: Bearer <API_KEY>"
 
-# With ERC-20 tokens
-curl -X GET "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/balance?tokens=0xTokenAddr1,0xTokenAddr2" \
+# Filter to specific chains (comma-separated chain IDs)
+curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/balances?chainIds=1,137,42161" \
   -H "Authorization: Bearer <API_KEY>"
 ```
+
+Returns all ERC-20 tokens and native balances with symbols, decimals, logos, and USD values.
 
 ### 4. Transfer ETH or Tokens
 
 ```bash
 # Transfer native ETH
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/transfer" \
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer" \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -75,7 +77,7 @@ curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}
   }'
 
 # Transfer ERC-20 token
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/transfer" \
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer" \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -91,7 +93,7 @@ Swap one token for another using DEX liquidity (powered by 0x).
 
 ```bash
 # Preview a swap (no execution, just pricing)
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/swap/preview" \
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/swap/preview" \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -102,7 +104,7 @@ curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}
   }'
 
 # Execute a swap
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/swap/execute" \
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/swap/execute" \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -126,7 +128,7 @@ The preview endpoint returns expected buy amount, route info, and fees without e
 Interact with any smart contract by sending custom calldata.
 
 ```bash
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/skills/evm-wallet/send-transaction" \
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/send-transaction" \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -164,7 +166,7 @@ If the agent loses its API key, the wallet owner can generate a **re-link token*
 3. The agent calls the re-link endpoint to exchange the token for a new API key
 
 ```bash
-curl -X POST "${SAFESKILLS_API_URL:-https://safeskill-production.up.railway.app}/api/secrets/relink" \
+curl -X POST "https://heyvincent.ai/api/secrets/relink" \
   -H "Content-Type: application/json" \
   -d '{
     "relinkToken": "<TOKEN_FROM_USER>",
@@ -188,5 +190,5 @@ If a user tells you they have a re-link token, use this endpoint to regain acces
 - Always store the API key from wallet creation. If you're an openclaw instance, store it in `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, you can store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
 - Always search for the API keys in the credentials folder before using the API. If you're an openclaw instance, search for the API key in `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, you can search for the API key in your current working directory at `agentwallet/<API_KEY_ID>.json`.
 - Always share the claim URL with the user after creating a wallet.
-- If a transaction is rejected, it may be blocked by a policy. Tell the user to check their policy settings via the frontend at `https://safeskill-production.up.railway.app/`.
+- If a transaction is rejected, it may be blocked by a policy. Tell the user to check their policy settings via the frontend at `https://heyvincent.ai`.
 - If a transaction requires approval, it will return `status: "pending_approval"`. The wallet owner will receive a Telegram notification to approve or deny.
