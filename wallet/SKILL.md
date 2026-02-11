@@ -2,7 +2,7 @@
 name: Vincent - A wallet for agents
 description: Use this skill to safely create a wallet the agent can use for transfers, swaps, and any EVM chain transaction. Also supports raw signing for Ethereum and Solana.
 homepage: https://heyvincent.ai
-source: https://github.com/user/vincent-skill
+source: https://github.com/HeyVincent-ai/Vincent
 metadata:
   clawdbot:
     homepage: https://heyvincent.ai
@@ -30,11 +30,13 @@ This skill is designed for **autonomous agent operation with human oversight via
 
 **All API calls go exclusively to `heyvincent.ai`** over HTTPS/TLS. No other endpoints, services, or external hosts are contacted. The agent does not read, collect, or transmit any data beyond what is needed for wallet operations.
 
+**Vincent is open source.** The server-side code that enforces policies, manages private keys, and executes transactions is publicly auditable at [github.com/HeyVincent-ai/Vincent](https://github.com/HeyVincent-ai/Vincent). You can verify how policy enforcement works, how private keys are stored, how the scoped API key is validated, and how revocation is handled — nothing is opaque. If you want to self-host Vincent rather than trust the hosted service, the repository includes deployment instructions.
+
 **Key lifecycle:**
 
 - **Creation**: The agent calls `POST /api/secrets` to create a wallet. The API returns a scoped API key and a claim URL.
 - **Claim**: The human operator uses the claim URL to take ownership and configure policies.
-- **Revocation**: The wallet owner can revoke the agent's API key at any time from the Vincent frontend (`https://heyvincent.ai`). Revoked keys are rejected immediately by the server.
+- **Revocation**: The wallet owner can revoke the agent's API key at any time from the Vincent frontend (`https://heyvincent.ai`). Revoked keys are rejected immediately by the server. The revocation logic is [open source](https://github.com/HeyVincent-ai/Vincent).
 - **Re-linking**: If the agent loses its API key, the wallet owner generates a one-time re-link token (expires after 10 minutes) and the agent exchanges it for a new key.
 - **Rotation**: The wallet owner can revoke the current key and issue a re-link token to rotate credentials at any time.
 
@@ -193,7 +195,7 @@ curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/send-transaction" \
 
 ## Policies (Server-Side Enforcement)
 
-The wallet owner controls what the agent can do by setting policies via the claim URL at `https://heyvincent.ai`. All policies are enforced server-side by the Vincent API — the agent cannot bypass or modify them. If a transaction violates a policy, the API rejects it. If a transaction triggers an approval threshold, the API holds it and sends the wallet owner a Telegram notification for out-of-band human approval.
+The wallet owner controls what the agent can do by setting policies via the claim URL at `https://heyvincent.ai`. All policies are enforced server-side by the Vincent API — the agent cannot bypass or modify them. If a transaction violates a policy, the API rejects it. If a transaction triggers an approval threshold, the API holds it and sends the wallet owner a Telegram notification for out-of-band human approval. The policy enforcement logic is open source and auditable at [github.com/HeyVincent-ai/Vincent](https://github.com/HeyVincent-ai/Vincent).
 
 | Policy                      | What it does                                                        |
 | --------------------------- | ------------------------------------------------------------------- |

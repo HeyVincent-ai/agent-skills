@@ -2,7 +2,7 @@
 name: Vincent - Polymarket for agents
 description: Use this skill to create a Polymarket wallet for your agent and trade on prediction markets. Browse markets, place bets, manage positions — all without exposing private keys.
 homepage: https://heyvincent.ai
-source: https://github.com/user/vincent-skill
+source: https://github.com/HeyVincent-ai/Vincent
 metadata:
   clawdbot:
     homepage: https://heyvincent.ai
