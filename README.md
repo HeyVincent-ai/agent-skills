@@ -19,6 +19,8 @@ Skills are drop-in modules. The agent creates its own wallet at runtime — no p
 | ----- | ----------- |
 | [wallet](wallet/) | EVM smart account wallet for agents. Transfers, token swaps, contract interactions on any EVM chain. Gas-free via ZeroDev paymaster. |
 | [polymarket](polymarket/) | Prediction market trading for agents. Browse markets, place bets, manage positions on Polymarket. Gasless via relayer. |
+| [brave-search](brave-search/) | Web and news search for agents via Brave Search. Pay-per-call ($0.005/query) through Vincent credit system. |
+| [twitter](twitter/) | Twitter/X.com data access for agents. Search tweets, look up profiles, retrieve recent tweets. Pay-per-call through Vincent credit system. |
 
 ## How It Works
 
@@ -37,8 +39,12 @@ Each top-level directory is an installable skill containing a `SKILL.md` with fu
 agent-skills/
 ├── wallet/
 │   └── SKILL.md          # EVM wallet — transfers, swaps, contract calls
-└── polymarket/
-    └── SKILL.md          # Polymarket — prediction market trading
+├── polymarket/
+│   └── SKILL.md          # Polymarket — prediction market trading
+├── brave-search/
+│   └── SKILL.md          # Brave Search — web and news search
+└── twitter/
+    └── SKILL.md          # Twitter/X.com — tweet search, user profiles
 ```
 
 ## Policy Controls
@@ -63,6 +69,10 @@ The wallet owner configures policies from the [Vincent dashboard](https://heyvin
 **DeFi operations** — Transfer tokens, interact with smart contracts, and swap on DEXs across any EVM chain with gas fully sponsored.
 
 **Prediction markets** — Browse Polymarket, place bets, and manage positions with policy-controlled risk limits.
+
+**Web research** — Agents search the web and news via Brave Search to gather real-time information, monitor topics, and inform decisions.
+
+**Social intelligence** — Agents search tweets, track user profiles, and monitor conversations on Twitter/X.com for sentiment and signals.
 
 **Human-in-the-loop workflows** — High-value actions trigger Telegram approval notifications for the wallet owner before execution.
 
