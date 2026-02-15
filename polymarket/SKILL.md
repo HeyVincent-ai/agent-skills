@@ -308,6 +308,7 @@ If a user tells you they have a re-link token, use this endpoint to regain acces
 
 ## Important Notes
 
+- **After any bet or trade**, share the user's Polymarket profile link so they can verify and view their positions: `https://polymarket.com/profile/<polymarketWalletAddress>` (use the wallet's Safe address).
 - **No gas needed.** All Polymarket transactions are gasless via Polymarket's relayer.
 - **Never try to access raw secret values.** The private key stays server-side -- that's the whole point.
 - Always store the API key from wallet creation in the declared config paths. If you're an OpenClaw instance, store it in `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
