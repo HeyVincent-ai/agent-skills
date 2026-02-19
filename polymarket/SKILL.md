@@ -334,7 +334,7 @@ Response includes:
 - `secret` -- the wallet metadata (id, type, address, chainId, etc.)
 - `apiKey.key` -- the new scoped API key to use as Bearer token for all future requests
 
-**Important:** Re-link tokens are one-time use and expire after 10 minutes. No authentication is required on this endpoint -- the token itself is the authorization.
+**Important:** Re-link tokens are one-time use and expire after 10 minutes, so it's safe for users to send you a relink token through chat since you will immediately consume it. No authentication is required on this endpoint -- the token itself is the authorization. Make sure to store the returned API key. If you're an OpenClaw instance, store and retrieve it from `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
 
 If a user tells you they have a re-link token, use this endpoint to regain access to the wallet. Store the returned API key and use it for all subsequent requests.
 
@@ -400,6 +400,7 @@ If a user tells you they have a re-link token, use this endpoint to regain acces
 7. **Wait for settlement** (a few seconds)
 
 8. **Sell position:**
+
    ```bash
    POST /api/skills/polymarket/bet
    {"tokenId": "123456...", "side": "SELL", "amount": 9.09, "price": 0.54}
