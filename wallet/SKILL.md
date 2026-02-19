@@ -193,6 +193,69 @@ curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/send-transaction" \
   }'
 ```
 
+### 7. Transfer Between Your Secrets
+
+Transfer funds between Vincent secrets you own (e.g., from one EVM wallet to another, or to a Polymarket wallet). Vincent verifies you own both secrets and handles any token conversion or cross-chain bridging automatically.
+
+#### Preview a Transfer
+
+Get a quote showing expected output, fees, and whether your balance is sufficient — without executing anything.
+
+```bash
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/preview" \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toSecretId": "<DESTINATION_SECRET_ID>",
+    "fromChainId": 8453,
+    "toChainId": 8453,
+    "tokenIn": "ETH",
+    "tokenInAmount": "0.1",
+    "tokenOut": "ETH"
+  }'
+```
+
+#### Execute a Transfer
+
+```bash
+curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/execute" \
+  -H "Authorization: Bearer <API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "toSecretId": "<DESTINATION_SECRET_ID>",
+    "fromChainId": 8453,
+    "toChainId": 8453,
+    "tokenIn": "ETH",
+    "tokenInAmount": "0.1",
+    "tokenOut": "ETH"
+  }'
+```
+
+#### Check Cross-Chain Transfer Status
+
+For cross-chain transfers, the execute response includes a `relayRequestId`. Use it to poll for completion.
+
+```bash
+curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/status/<RELAY_REQUEST_ID>" \
+  -H "Authorization: Bearer <API_KEY>"
+```
+
+**Parameters:**
+
+- `toSecretId`: The ID of the destination secret (must be owned by the same user).
+- `fromChainId` / `toChainId`: Chain IDs for source and destination.
+- `tokenIn` / `tokenOut`: Token addresses or `"ETH"` for native ETH.
+- `tokenInAmount`: Human-readable amount to send (e.g. `"0.1"`).
+- `slippage`: Optional slippage tolerance in basis points (e.g. `100` = 1%).
+
+**Behavior:**
+
+- **Same token + same chain**: Executes as a direct transfer (gas sponsored).
+- **Different token or chain**: Uses a relay service for atomic swap + bridge.
+- The destination secret can be an `EVM_WALLET` or `POLYMARKET_WALLET`.
+- The server verifies you own both the source and destination secrets — transfers to secrets you don't own are rejected.
+- Transfers are subject to the same server-side policies as regular transfers (spending limits, approval thresholds, etc.).
+
 ## Policies (Server-Side Enforcement)
 
 The wallet owner controls what the agent can do by setting policies via the claim URL at `https://heyvincent.ai`. All policies are enforced server-side by the Vincent API — the agent cannot bypass or modify them. If a transaction violates a policy, the API rejects it. If a transaction triggers an approval threshold, the API holds it and sends the wallet owner a Telegram notification for out-of-band human approval. The policy enforcement logic is open source and auditable at [github.com/HeyVincent-ai/Vincent](https://github.com/HeyVincent-ai/Vincent).
