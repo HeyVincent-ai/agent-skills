@@ -8,7 +8,7 @@ metadata:
     homepage: https://heyvincent.ai
     requires:
       config:
-        - ~/.openclaw/credentials/datasources
+        - ${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources
         - ./datasources
 ---
 
@@ -22,7 +22,7 @@ Use this skill to search tweets, look up user profiles, and retrieve recent twee
 
 This skill is designed for **autonomous agent operation with pay-per-call pricing and human oversight**.
 
-**No environment variables are required** because this skill uses agent-first onboarding: the agent creates a `DATA_SOURCES` secret at runtime by calling the Vincent API, which returns a scoped API key. The config paths where the agent persists the returned API key (`~/.openclaw/credentials/datasources/` or `./datasources/`) are declared in this skill's metadata.
+**No environment variables are required** because this skill uses agent-first onboarding: the agent creates a `DATA_SOURCES` secret at runtime by calling the Vincent API, which returns a scoped API key. The config paths where the agent persists the returned API key (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/` or `./datasources/`) are declared in this skill's metadata.
 
 **The agent's API key is not a Twitter API key.** It is a scoped Bearer token for the Vincent proxy. The Vincent server authenticates with Twitter on the agent's behalf. The agent cannot access the upstream API directly or bypass the proxy's credit and rate-limit enforcement.
 
@@ -52,7 +52,7 @@ Credit is deducted automatically per call. The response includes `_vincent.credi
 
 All API requests require a Bearer token (the scoped API key returned when creating a `DATA_SOURCES` secret).
 
-Store the API key locally after creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `~/.openclaw/credentials/datasources/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `datasources/<API_KEY_ID>.json`.
+Store the API key locally after creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `datasources/<API_KEY_ID>.json`.
 
 ```
 Authorization: Bearer <API_KEY>
@@ -170,7 +170,7 @@ Re-link tokens are one-time use and expire after 10 minutes.
 
 ## Important Notes
 
-- Always search for existing API keys in the declared config paths before creating a new secret. If you're an OpenClaw instance, search in `~/.openclaw/credentials/datasources/`. Otherwise, search in `./datasources/`.
+- Always search for existing API keys in the declared config paths before creating a new secret. If you're an OpenClaw instance, search in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/`. Otherwise, search in `./datasources/`.
 - A single `DATA_SOURCES` API key works for **all** data sources (Twitter, Brave Search, etc.). You do not need a separate key per data source.
 - Always share the claim URL with the user after creating a secret.
 - If a call is rejected with a credit error, tell the user to add credit at `https://heyvincent.ai`.

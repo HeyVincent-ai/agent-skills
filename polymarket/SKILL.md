@@ -8,7 +8,7 @@ metadata:
     homepage: https://heyvincent.ai
     requires:
       config:
-        - ~/.openclaw/credentials/agentwallet
+        - ${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet
         - ./agentwallet
 ---
 
@@ -22,7 +22,7 @@ Use this skill to create a Polymarket wallet for your agent and trade on predict
 
 This skill is designed for **autonomous agent trading with human oversight via server-side controls**. Understanding this model is important:
 
-**No environment variables are required** because this skill uses agent-first onboarding: the agent creates its own Polymarket wallet at runtime by calling the Vincent API, which returns a scoped API key. There is no pre-existing credential to configure. The agent generates and stores its own API key during wallet creation — no secrets need to exist before the skill runs. The config paths where the agent persists the returned API key (`~/.openclaw/credentials/agentwallet/` or `./agentwallet/`) are declared in this skill's metadata.
+**No environment variables are required** because this skill uses agent-first onboarding: the agent creates its own Polymarket wallet at runtime by calling the Vincent API, which returns a scoped API key. There is no pre-existing credential to configure. The agent generates and stores its own API key during wallet creation — no secrets need to exist before the skill runs. The config paths where the agent persists the returned API key (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/` or `./agentwallet/`) are declared in this skill's metadata.
 
 **The agent's API key is not a private key.** It is a scoped Bearer token that can only execute actions within the policies set by the wallet owner. The Vincent server enforces all policies server-side — the agent cannot bypass them regardless of what it sends. If a trade violates a policy, the server rejects it. If a trade requires approval, the server holds it and notifies the wallet owner via Telegram for out-of-band human approval.
 
@@ -42,7 +42,7 @@ This skill is designed for **autonomous agent trading with human oversight via s
 
 All API requests require a Bearer token (the scoped API key returned when creating a wallet). This key is not a private key — it is a server-enforced, policy-scoped credential that the wallet owner can revoke at any time.
 
-Store the API key locally after wallet creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`. These paths are declared in this skill's metadata so the host environment can audit and manage credential storage.
+Store the API key locally after wallet creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`. These paths are declared in this skill's metadata so the host environment can audit and manage credential storage.
 
 ```
 Authorization: Bearer <API_KEY>
@@ -386,7 +386,7 @@ Response includes:
 - `secret` -- the wallet metadata (id, type, address, chainId, etc.)
 - `apiKey.key` -- the new scoped API key to use as Bearer token for all future requests
 
-**Important:** Re-link tokens are one-time use and expire after 10 minutes, so it's safe for users to send you a relink token through chat since you will immediately consume it. No authentication is required on this endpoint -- the token itself is the authorization. Make sure to store the returned API key. If you're an OpenClaw instance, store and retrieve it from `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
+**Important:** Re-link tokens are one-time use and expire after 10 minutes, so it's safe for users to send you a relink token through chat since you will immediately consume it. No authentication is required on this endpoint -- the token itself is the authorization. Make sure to store the returned API key. If you're an OpenClaw instance, store and retrieve it from `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
 
 If a user tells you they have a re-link token, use this endpoint to regain access to the wallet. Store the returned API key and use it for all subsequent requests.
 
@@ -471,8 +471,8 @@ If a user tells you they have a re-link token, use this endpoint to regain acces
 - **After any bet or trade**, share the user's Polymarket profile link so they can verify and view their positions: `https://polymarket.com/profile/<polymarketWalletAddress>` (use the wallet's Safe address).
 - **No gas needed.** All Polymarket transactions are gasless via Polymarket's relayer.
 - **Never try to access raw secret values.** The private key stays server-side -- that's the whole point.
-- Always store the API key from wallet creation in the declared config paths. If you're an OpenClaw instance, store it in `~/.openclaw/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
-- Always search for existing API keys in the declared config paths before creating a new wallet. If you're an OpenClaw instance, search in `~/.openclaw/credentials/agentwallet/`. Otherwise, search in `./agentwallet/`.
+- Always store the API key from wallet creation in the declared config paths. If you're an OpenClaw instance, store it in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
+- Always search for existing API keys in the declared config paths before creating a new wallet. If you're an OpenClaw instance, search in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/`. Otherwise, search in `./agentwallet/`.
 - Always share the claim URL with the user after creating a wallet.
 - If a transaction is rejected, it may be blocked by a server-side policy. Tell the user to check their policy settings at `https://heyvincent.ai`.
 - If a transaction requires approval, it will return `status: "pending_approval"`. The wallet owner will receive a Telegram notification to approve or deny.

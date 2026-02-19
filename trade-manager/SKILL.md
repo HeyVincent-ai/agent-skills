@@ -408,4 +408,4 @@ Worker status including active rules count, last sync time, circuit breaker stat
 - **No private keys:** Trade Manager uses Vincent API for all trades - your private key stays secure on Vincent's servers
 - **Policy enforcement:** All trades executed by Trade Manager still go through Vincent's policy checks
 - **Idempotency:** Rules only trigger once - even if the worker crashes and restarts
-- **Database location:** SQLite DB at `~/.openclaw/trade-manager.db` (or configured path)
+- **Database location:** SQLite DB at `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/trade-manager.db` (or configured path)
