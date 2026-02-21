@@ -18,11 +18,13 @@ Use this skill to search the web and news using Brave Search. All requests are p
 
 **No API keys to manage.** The agent authenticates with a Vincent API key scoped to a `DATA_SOURCES` secret. Vincent handles the upstream Brave Search API credentials server-side -- the agent never sees or manages Brave API keys.
 
+All commands use the `@vincentai/cli` package. API keys are stored and resolved automatically — you never handle raw keys or file paths.
+
 ## Security Model
 
 This skill is designed for **autonomous agent operation with pay-per-call pricing and human oversight**.
 
-**No environment variables are required** because this skill uses agent-first onboarding: the agent creates a `DATA_SOURCES` secret at runtime by calling the Vincent API, which returns a scoped API key. The config paths where the agent persists the returned API key (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/` or `./datasources/`) are declared in this skill's metadata.
+**No environment variables are required** because this skill uses agent-first onboarding: the agent creates a `DATA_SOURCES` secret at runtime by calling the Vincent API, which returns a scoped API key. The CLI stores the returned API key automatically during creation. The config paths where the key is persisted (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/` or `./datasources/`) are declared in this skill's metadata.
 
 **The agent's API key is not a Brave Search API key.** It is a scoped Bearer token for the Vincent proxy. The Vincent server authenticates with Brave Search on the agent's behalf. The agent cannot access the upstream API directly or bypass the proxy's credit and rate-limit enforcement.
 
@@ -32,7 +34,7 @@ This skill is designed for **autonomous agent operation with pay-per-call pricin
 
 **Key lifecycle:**
 
-- **Creation**: The agent calls `POST /api/secrets` with `type: "DATA_SOURCES"` to create a data sources secret. The API returns a scoped API key and a claim URL.
+- **Creation**: The agent runs `secret create` with `--type DATA_SOURCES` — the CLI stores the API key automatically and returns a `keyId` and `claimUrl`.
 - **Claim**: The human operator uses the claim URL to take ownership, add credit, and manage payment at `https://heyvincent.ai`.
 - **Credit**: Each API call costs a small amount (see Pricing below). The human adds credit via the frontend. Calls are rejected when credit runs out and no payment method is on file.
 - **Revocation**: The secret owner can revoke the agent's API key at any time from the Vincent frontend.
@@ -46,35 +48,25 @@ This skill is designed for **autonomous agent operation with pay-per-call pricin
 
 Credit is deducted automatically per call. The response includes `_vincent.creditRemainingUsd` so the agent can track remaining balance.
 
-## Configuration
-
-All API requests require a Bearer token (the scoped API key returned when creating a `DATA_SOURCES` secret).
-
-Store the API key locally after creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `datasources/<API_KEY_ID>.json`.
-
-```
-Authorization: Bearer <API_KEY>
-```
-
 ## Quick Start
 
-### 1. Create a Data Sources Secret
+### 1. Check for Existing Keys
 
-If you don't already have a `DATA_SOURCES` API key, create one:
+Before creating a new secret, check if one already exists:
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/secrets" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "DATA_SOURCES",
-    "memo": "My agent data sources"
-  }'
+npx @vincentai/cli@latest secret list --type DATA_SOURCES
 ```
 
-Response includes:
+If a key is returned, use its `id` as the `--key-id` for all subsequent commands. If no keys exist, create a new secret.
 
-- `apiKey` -- a scoped API key; store this securely and use it as the Bearer token for all data source requests
-- `claimUrl` -- share with the user to claim ownership and add credit
+### 2. Create a Data Sources Secret
+
+```bash
+npx @vincentai/cli@latest secret create --type DATA_SOURCES --memo "My agent data sources"
+```
+
+Returns `keyId` (use for all future commands) and `claimUrl` (share with the user).
 
 After creating, tell the user:
 
@@ -82,39 +74,33 @@ After creating, tell the user:
 
 **Important:** The secret must be claimed and have credit (or a payment method on file) before API calls will succeed.
 
-### 2. Web Search
-
-Search the web by keyword.
+### 3. Web Search
 
 ```bash
-curl -X GET "https://heyvincent.ai/api/data-sources/brave/web?q=latest+AI+news&count=10" \
-  -H "Authorization: Bearer <API_KEY>"
+npx @vincentai/cli@latest brave web --key-id <KEY_ID> --q "latest AI news" --count 10
 ```
 
 Parameters:
 
-- `q` (required): Search query (1-400 characters)
-- `count` (optional): Number of results, 1-20 (default: 10)
-- `offset` (optional): Pagination offset, 0-9
-- `freshness` (optional): Time filter -- `pd` (past day), `pw` (past week), `pm` (past month), `py` (past year)
-- `country` (optional): 2-letter country code for localized results (e.g., `us`, `gb`, `de`)
+- `--q` (required): Search query (1-400 characters)
+- `--count` (optional): Number of results, 1-20 (default: 10)
+- `--offset` (optional): Pagination offset, 0-9
+- `--freshness` (optional): Time filter — `pd` (past day), `pw` (past week), `pm` (past month), `py` (past year)
+- `--country` (optional): 2-letter country code for localized results (e.g., `us`, `gb`, `de`)
 
 Returns web results with titles, URLs, descriptions, and metadata.
 
-### 3. News Search
-
-Search recent news articles.
+### 4. News Search
 
 ```bash
-curl -X GET "https://heyvincent.ai/api/data-sources/brave/news?q=bitcoin&count=10" \
-  -H "Authorization: Bearer <API_KEY>"
+npx @vincentai/cli@latest brave news --key-id <KEY_ID> --q bitcoin --count 10
 ```
 
 Parameters:
 
-- `q` (required): Search query (1-400 characters)
-- `count` (optional): Number of results, 1-20 (default: 10)
-- `freshness` (optional): Time filter -- `pd` (past day), `pw` (past week), `pm` (past month), `py` (past year)
+- `--q` (required): Search query (1-400 characters)
+- `--count` (optional): Number of results, 1-20 (default: 10)
+- `--freshness` (optional): Time filter — `pd` (past day), `pw` (past week), `pm` (past month), `py` (past year)
 
 Returns news articles with titles, URLs, descriptions, publication dates, and source information.
 
@@ -143,19 +129,13 @@ Use `creditRemainingUsd` to warn the user when credit is running low.
 If the agent loses its API key, the secret owner can generate a **re-link token** from the frontend. The agent then exchanges this token for a new API key.
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/secrets/relink" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "relinkToken": "<TOKEN_FROM_USER>",
-    "apiKeyName": "Re-linked API Key"
-  }'
+npx @vincentai/cli@latest secret relink --token <TOKEN_FROM_USER>
 ```
 
-Re-link tokens are one-time use and expire after 10 minutes.
+The CLI exchanges the token for a new API key, stores it automatically, and returns the new `keyId`. Re-link tokens are one-time use and expire after 10 minutes.
 
 ## Important Notes
 
-- Always search for existing API keys in the declared config paths before creating a new secret. If you're an OpenClaw instance, search in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/datasources/`. Otherwise, search in `./datasources/`.
 - A single `DATA_SOURCES` API key works for **all** data sources (Twitter, Brave Search, etc.). You do not need a separate key per data source.
 - Always share the claim URL with the user after creating a secret.
 - If a call is rejected with a credit error, tell the user to add credit at `https://heyvincent.ai`.

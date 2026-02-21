@@ -18,15 +18,17 @@ Use this skill to safely create a wallet the agent can use for transfers, swaps,
 
 **The agent never sees the private key.** All transactions are executed server-side through a ZeroDev smart account. The agent receives a scoped API key that can only perform actions permitted by the wallet owner's policies. The private key never leaves the Vincent server.
 
+All commands use the `@vincentai/cli` package. API keys are stored and resolved automatically — you never handle raw keys or file paths.
+
 ## Security Model
 
 This skill is designed for **autonomous agent operation with human oversight via server-side controls**. Understanding this model is important:
 
-**No environment variables are required** because this skill uses agent-first onboarding: the agent creates its own wallet at runtime by calling the Vincent API, which returns a scoped API key. There is no pre-existing credential to configure. The agent generates and stores its own API key during wallet creation — no secrets need to exist before the skill runs. The config paths where the agent persists the returned API key (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/` or `./agentwallet/`) are declared in this skill's metadata.
+**No environment variables are required** because this skill uses agent-first onboarding: the agent creates its own wallet at runtime by calling the Vincent API, which returns a scoped API key. There is no pre-existing credential to configure. The CLI stores the returned API key automatically during wallet creation. The config paths where the key is persisted (`${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/` or `./agentwallet/`) are declared in this skill's metadata.
 
 **The agent's API key is not a private key.** It is a scoped Bearer token that can only execute transactions within the policies set by the wallet owner. The Vincent server enforces all policies server-side — the agent cannot bypass them regardless of what it sends. If a transaction violates a policy, the server rejects it. If a transaction requires approval, the server holds it and notifies the wallet owner via Telegram for out-of-band human approval.
 
-**Model invocation is intentionally enabled.** The purpose of this skill is to give AI agents autonomous wallet capabilities. The agent is expected to invoke wallet actions (transfers, swaps, contract calls) on its own, within the boundaries the human operator defines. The human controls what the agent can do through policies (spending limits, address allowlists, token allowlists, function allowlists, approval thresholds) — not by gating individual invocations. The agent persists its scoped API key to the declared config paths so it can resume wallet operations across sessions; this is expected behavior for an autonomous wallet agent. The stored key is scoped and policy-constrained — even if another process reads it, it can only perform actions the wallet owner's policies allow, and the owner can revoke it instantly.
+**Model invocation is intentionally enabled.** The purpose of this skill is to give AI agents autonomous wallet capabilities. The agent is expected to invoke wallet actions (transfers, swaps, contract calls) on its own, within the boundaries the human operator defines. The human controls what the agent can do through policies (spending limits, address allowlists, token allowlists, function allowlists, approval thresholds) — not by gating individual invocations. The stored key is scoped and policy-constrained — even if another process reads it, it can only perform actions the wallet owner's policies allow, and the owner can revoke it instantly.
 
 **All API calls go exclusively to `heyvincent.ai`** over HTTPS/TLS. No other endpoints, services, or external hosts are contacted. The agent does not read, collect, or transmit any data beyond what is needed for wallet operations.
 
@@ -34,10 +36,10 @@ This skill is designed for **autonomous agent operation with human oversight via
 
 **Key lifecycle:**
 
-- **Creation**: The agent calls `POST /api/secrets` to create a wallet. The API returns a scoped API key and a claim URL.
+- **Creation**: The agent runs `secret create` — the CLI stores the API key automatically and returns a `keyId` and `claimUrl`.
 - **Claim**: The human operator uses the claim URL to take ownership and configure policies.
-- **Revocation**: The wallet owner can revoke the agent's API key at any time from the Vincent frontend (`https://heyvincent.ai`). Revoked keys are rejected immediately by the server. The revocation logic is [open source](https://github.com/HeyVincent-ai/Vincent).
-- **Re-linking**: If the agent loses its API key, the wallet owner generates a one-time re-link token (expires after 10 minutes) and the agent exchanges it for a new key.
+- **Revocation**: The wallet owner can revoke the agent's API key at any time from `https://heyvincent.ai`. Revoked keys are rejected immediately by the server.
+- **Re-linking**: If the agent loses its API key, the wallet owner generates a one-time re-link token and the agent exchanges it for a new key via `secret relink`.
 - **Rotation**: The wallet owner can revoke the current key and issue a re-link token to rotate credentials at any time.
 
 ## Which Secret Type to Use
@@ -60,193 +62,111 @@ This skill is designed for **autonomous agent operation with human oversight via
 - To sign transaction hashes you'll broadcast yourself
 - Solana signatures
 
-## Configuration
-
-All API requests require a Bearer token (the scoped API key returned when creating a wallet). This key is not a private key — it is a server-enforced, policy-scoped credential that the wallet owner can revoke at any time.
-
-Store the API key locally after wallet creation in one of the declared config paths. If you're an OpenClaw instance, store and retrieve it from `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`. These paths are declared in this skill's metadata so the host environment can audit and manage credential storage.
-
-```
-Authorization: Bearer <API_KEY>
-```
-
 ## Quick Start
 
-### 1. Create a Wallet
+### 1. Check for Existing Keys
 
-Create a new smart account wallet for your agent. This generates a private key server-side (the agent never sees it), creates a ZeroDev smart account, and returns a scoped API key for the agent plus a claim URL for the wallet owner.
+Before creating a new wallet, check if one already exists:
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/secrets" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "EVM_WALLET",
-    "memo": "My agent wallet",
-    "chainId": 84532
-  }'
+npx @vincentai/cli@latest secret list --type EVM_WALLET
 ```
 
-Response includes:
+If a key is returned, use its `id` as the `--key-id` for all subsequent commands. If no keys exist, create a new wallet.
 
-- `apiKey` -- a scoped API key; store this securely and use it as the Bearer token for all future requests
-- `claimUrl` -- share this with the user so they can claim the wallet and set policies
-- `address` -- the smart account address
+### 2. Create a Wallet
+
+```bash
+npx @vincentai/cli@latest secret create --type EVM_WALLET --memo "My agent wallet" --chain-id 84532
+```
+
+Returns `keyId` (use for all future commands), `claimUrl` (share with the user), and `address`.
 
 After creating, tell the user:
 
 > "Here is your wallet claim URL: `<claimUrl>`. Use this to claim ownership, set spending policies, and monitor your agent's wallet activity at https://heyvincent.ai."
 
-### 2. Get Wallet Address
+### 3. Get Wallet Address
 
 ```bash
-curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/address" \
-  -H "Authorization: Bearer <API_KEY>"
+npx @vincentai/cli@latest wallet address --key-id <KEY_ID>
 ```
 
-### 3. Check Balances
+### 4. Check Balances
 
 ```bash
-# Get all token balances across all supported chains (ETH, WETH, USDC, etc.)
-curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/balances" \
-  -H "Authorization: Bearer <API_KEY>"
+# All balances across all supported chains
+npx @vincentai/cli@latest wallet balances --key-id <KEY_ID>
 
-# Filter to specific chains (comma-separated chain IDs)
-curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/balances?chainIds=1,137,42161" \
-  -H "Authorization: Bearer <API_KEY>"
+# Filter to specific chains
+npx @vincentai/cli@latest wallet balances --key-id <KEY_ID> --chain-ids 1,137,42161
 ```
 
 Returns all ERC-20 tokens and native balances with symbols, decimals, logos, and USD values.
 
-### 4. Transfer ETH or Tokens
+### 5. Transfer ETH or Tokens
 
 ```bash
 # Transfer native ETH
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "0xRecipientAddress",
-    "amount": "0.01"
-  }'
+npx @vincentai/cli@latest wallet transfer --key-id <KEY_ID> --to 0xRecipient --amount 0.01
 
 # Transfer ERC-20 token
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "0xRecipientAddress",
-    "amount": "100",
-    "token": "0xTokenContractAddress"
-  }'
+npx @vincentai/cli@latest wallet transfer --key-id <KEY_ID> --to 0xRecipient --amount 100 --token 0xTokenAddress
 ```
 
 If the transaction violates a policy, the server returns an error explaining which policy was triggered. If the transaction requires human approval (based on the approval threshold policy), the server returns `status: "pending_approval"` and the wallet owner receives a Telegram notification to approve or deny.
 
-### 5. Swap Tokens
+### 6. Swap Tokens
 
 Swap one token for another using DEX liquidity (powered by 0x).
 
 ```bash
 # Preview a swap (no execution, just pricing)
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/swap/preview" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sellToken": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-    "buyToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    "sellAmount": "0.1",
-    "chainId": 1
-  }'
+npx @vincentai/cli@latest wallet swap preview --key-id <KEY_ID> \
+  --sell-token 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE \
+  --buy-token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 \
+  --sell-amount 0.1 --chain-id 1
 
 # Execute a swap
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/swap/execute" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sellToken": "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-    "buyToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    "sellAmount": "0.1",
-    "chainId": 1,
-    "slippageBps": 100
-  }'
+npx @vincentai/cli@latest wallet swap execute --key-id <KEY_ID> \
+  --sell-token 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE \
+  --buy-token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 \
+  --sell-amount 0.1 --chain-id 1 --slippage 100
 ```
 
-- `sellToken` / `buyToken`: Token contract addresses. Use `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` for native ETH.
-- `sellAmount`: Human-readable amount to sell (e.g. `"0.1"` for 0.1 ETH).
-- `chainId`: The chain to swap on (1 = Ethereum, 137 = Polygon, 42161 = Arbitrum, 10 = Optimism, 8453 = Base, etc.).
-- `slippageBps`: Optional slippage tolerance in basis points (100 = 1%). Defaults to 100.
+- Use `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` for native ETH.
+- `--sell-amount`: Human-readable amount (e.g. `0.1` for 0.1 ETH).
+- `--chain-id`: 1 = Ethereum, 137 = Polygon, 42161 = Arbitrum, 10 = Optimism, 8453 = Base, etc.
+- `--slippage`: Slippage tolerance in basis points (100 = 1%). Defaults to 100. Execute only.
 
-The preview endpoint returns expected buy amount, route info, and fees without executing. The execute endpoint performs the actual swap through the smart account, handling ERC20 approvals automatically.
+The preview returns expected buy amount, route info, and fees without executing. Execute performs the actual swap, handling ERC20 approvals automatically.
 
-### 6. Send Arbitrary Transaction
+### 7. Send Arbitrary Transaction
 
 Interact with any smart contract by sending custom calldata.
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/send-transaction" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "to": "0xContractAddress",
-    "data": "0xCalldata",
-    "value": "0"
-  }'
+npx @vincentai/cli@latest wallet send-tx --key-id <KEY_ID> --to 0xContract --data 0xCalldata --value 0
 ```
 
-### 7. Transfer Between Your Secrets
+### 8. Transfer Between Your Secrets
 
 Transfer funds between Vincent secrets you own (e.g., from one EVM wallet to another, or to a Polymarket wallet). Vincent verifies you own both secrets and handles any token conversion or cross-chain bridging automatically.
 
-#### Preview a Transfer
-
-Get a quote showing expected output, fees, and whether your balance is sufficient — without executing anything.
-
 ```bash
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/preview" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "toSecretId": "<DESTINATION_SECRET_ID>",
-    "fromChainId": 8453,
-    "toChainId": 8453,
-    "tokenIn": "ETH",
-    "tokenInAmount": "0.1",
-    "tokenOut": "ETH"
-  }'
+# Preview (get quote without executing)
+npx @vincentai/cli@latest wallet transfer-between preview --key-id <KEY_ID> \
+  --to-secret-id <DEST_SECRET_ID> --from-chain 8453 --to-chain 8453 \
+  --token-in ETH --amount 0.1 --token-out ETH
+
+# Execute
+npx @vincentai/cli@latest wallet transfer-between execute --key-id <KEY_ID> \
+  --to-secret-id <DEST_SECRET_ID> --from-chain 8453 --to-chain 8453 \
+  --token-in ETH --amount 0.1 --token-out ETH --slippage 100
+
+# Check cross-chain transfer status
+npx @vincentai/cli@latest wallet transfer-between status --key-id <KEY_ID> --relay-id <RELAY_REQUEST_ID>
 ```
-
-#### Execute a Transfer
-
-```bash
-curl -X POST "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/execute" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "toSecretId": "<DESTINATION_SECRET_ID>",
-    "fromChainId": 8453,
-    "toChainId": 8453,
-    "tokenIn": "ETH",
-    "tokenInAmount": "0.1",
-    "tokenOut": "ETH"
-  }'
-```
-
-#### Check Cross-Chain Transfer Status
-
-For cross-chain transfers, the execute response includes a `relayRequestId`. Use it to poll for completion.
-
-```bash
-curl -X GET "https://heyvincent.ai/api/skills/evm-wallet/transfer-between-secrets/status/<RELAY_REQUEST_ID>" \
-  -H "Authorization: Bearer <API_KEY>"
-```
-
-**Parameters:**
-
-- `toSecretId`: The ID of the destination secret (must be owned by the same user).
-- `fromChainId` / `toChainId`: Chain IDs for source and destination.
-- `tokenIn` / `tokenOut`: Token addresses or `"ETH"` for native ETH.
-- `tokenInAmount`: Human-readable amount to send (e.g. `"0.1"`).
-- `slippage`: Optional slippage tolerance in basis points (e.g. `100` = 1%).
 
 **Behavior:**
 
@@ -281,32 +201,20 @@ If the agent loses its API key, the wallet owner can generate a **re-link token*
 
 1. The user generates a re-link token from the wallet detail page at `https://heyvincent.ai`
 2. The user gives the token to the agent (e.g. by pasting it in chat)
-3. The agent calls the re-link endpoint to exchange the token for a new scoped API key
+3. The agent runs the relink command:
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/secrets/relink" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "relinkToken": "<TOKEN_FROM_USER>",
-    "apiKeyName": "Re-linked API Key"
-  }'
+npx @vincentai/cli@latest secret relink --token <TOKEN_FROM_USER>
 ```
 
-Response includes:
+The CLI exchanges the token for a new API key, stores it automatically, and returns the new `keyId`. Use this `keyId` for all subsequent commands.
 
-- `secret` -- the wallet metadata (id, type, address, chainId, etc.)
-- `apiKey.key` -- the new scoped API key to use as Bearer token for all future requests
-
-**Important:** Re-link tokens are one-time use and expire after 10 minutes. No authentication is required on this endpoint -- the token itself is the authorization.
-
-If a user tells you they have a re-link token, use this endpoint to regain access to the wallet. Store the returned API key and use it for all subsequent requests.
+**Important:** Re-link tokens are one-time use and expire after 10 minutes.
 
 ## Important Notes
 
-- **No gas needed.** A paymaster is fully set up -- all transaction gas fees are sponsored automatically. The wallet does not need ETH for gas.
-- **Never try to access raw secret values.** The private key stays server-side -- that's the whole point.
-- Always store the API key from wallet creation in the declared config paths. If you're an OpenClaw instance, store it in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/<API_KEY_ID>.json`. Otherwise, store it in your current working directory at `agentwallet/<API_KEY_ID>.json`.
-- Always search for existing API keys in the declared config paths before creating a new wallet. If you're an OpenClaw instance, search in `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet/`. Otherwise, search in `./agentwallet/`.
+- **No gas needed.** A paymaster is fully set up — all transaction gas fees are sponsored automatically. The wallet does not need ETH for gas.
+- **Never try to access raw secret values.** The private key stays server-side — that's the whole point.
 - Always share the claim URL with the user after creating a wallet.
 - If a transaction is rejected, it may be blocked by a server-side policy. Tell the user to check their policy settings at `https://heyvincent.ai`.
 - If a transaction requires approval, it will return `status: "pending_approval"`. The wallet owner will receive a Telegram notification to approve or deny.
@@ -320,12 +228,7 @@ For raw ECDSA/Ed25519 signing when smart accounts won't work.
 ### Create a Raw Signer
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/secrets" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "RAW_SIGNER",
-    "memo": "My raw signer"
-  }'
+npx @vincentai/cli@latest secret create --type RAW_SIGNER --memo "My raw signer"
 ```
 
 Response includes both Ethereum (secp256k1) and Solana (ed25519) addresses derived from the same seed.
@@ -333,8 +236,7 @@ Response includes both Ethereum (secp256k1) and Solana (ed25519) addresses deriv
 ### Get Addresses
 
 ```bash
-curl -X GET "https://heyvincent.ai/api/skills/raw-signer/addresses" \
-  -H "Authorization: Bearer <API_KEY>"
+npx @vincentai/cli@latest raw-signer addresses --key-id <KEY_ID>
 ```
 
 Returns `ethAddress` and `solanaAddress`.
@@ -342,16 +244,10 @@ Returns `ethAddress` and `solanaAddress`.
 ### Sign a Message
 
 ```bash
-curl -X POST "https://heyvincent.ai/api/skills/raw-signer/sign" \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "0x<hex-encoded-bytes>",
-    "curve": "ethereum"
-  }'
+npx @vincentai/cli@latest raw-signer sign --key-id <KEY_ID> --message 0x<hex-encoded-bytes> --curve ethereum
 ```
 
-- `message`: Hex-encoded bytes to sign (must start with `0x`)
-- `curve`: `"ethereum"` for secp256k1 ECDSA, `"solana"` for ed25519
+- `--message`: Hex-encoded bytes to sign (must start with `0x`)
+- `--curve`: `ethereum` for secp256k1 ECDSA, `solana` for ed25519
 
 Returns a hex-encoded signature. For Ethereum, this is `r || s || v` (65 bytes). For Solana, it's a 64-byte ed25519 signature.
