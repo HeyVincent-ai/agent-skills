@@ -241,6 +241,27 @@ If no positions are redeemable, `redeemed` will be an empty array and no transac
 
 **When to redeem:** Check holdings periodically. After a market resolves, it may take some time before positions become redeemable. Look for `redeemable: true` in the holdings response.
 
+### 12. Withdraw USDC
+
+Transfer USDC.e from your Polymarket Safe to any Ethereum address on Polygon. This is gasless — executed via Polymarket's relayer.
+
+```bash
+npx @vincentai/cli@latest polymarket withdraw --key-id <KEY_ID> --to <RECIPIENT_ADDRESS> --amount <AMOUNT>
+```
+
+Parameters:
+
+- `--to`: Recipient Ethereum address (0x..., 42 characters)
+- `--amount`: Amount in USDC (human-readable, e.g. "100" = 100 USDC)
+
+**Response:**
+
+- `status`: `"executed"`, `"pending_approval"`, or `"denied"`
+- `transactionHash`: Polygon transaction hash (only if executed)
+- `walletAddress`: The Safe address that sent the funds
+
+If the amount exceeds the wallet's USDC balance, the server returns an `INSUFFICIENT_BALANCE` error. Policy checks (spending limits, approval thresholds) apply to withdrawals the same way they apply to bets.
+
 ## Policies (Server-Side Enforcement)
 
 The wallet owner controls what the agent can do by setting policies via the claim URL at `https://heyvincent.ai`. All policies are enforced server-side by the Vincent API — the agent cannot bypass or modify them. If a trade violates a policy, the API rejects it. If a trade triggers an approval threshold, the API holds it and sends the wallet owner a Telegram notification for out-of-band human approval.
@@ -327,6 +348,12 @@ The CLI exchanges the token for a new API key, stores it automatically, and retu
    # If redeemable: true, redeem to get USDC.e back
    npx @vincentai/cli@latest polymarket redeem --key-id <KEY_ID>
    ```
+
+10. **Withdraw USDC to another wallet:**
+
+    ```bash
+    npx @vincentai/cli@latest polymarket withdraw --key-id <KEY_ID> --to 0xRecipientAddress --amount 50
+    ```
 
 ## Important Notes
 
