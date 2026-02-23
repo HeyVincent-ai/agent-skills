@@ -21,6 +21,7 @@ Skills are drop-in modules. The agent creates its own wallet at runtime — no p
 | [polymarket](polymarket/) | Prediction market trading for agents. Browse markets, place bets, manage positions on Polymarket. Gasless via relayer. |
 | [brave-search](brave-search/) | Web and news search for agents via Brave Search. Pay-per-call ($0.005/query) through Vincent credit system. |
 | [twitter](twitter/) | Twitter/X.com data access for agents. Search tweets, look up profiles, retrieve recent tweets. Pay-per-call through Vincent credit system. |
+| [trade-manager](trade-manager/) | Automated stop-loss, take-profit, and trailing stops for Polymarket positions. Real-time price monitoring via WebSocket with automatic trade execution. |
 
 ## How It Works
 
@@ -43,8 +44,10 @@ agent-skills/
 │   └── SKILL.md          # Polymarket — prediction market trading
 ├── brave-search/
 │   └── SKILL.md          # Brave Search — web and news search
-└── twitter/
-    └── SKILL.md          # Twitter/X.com — tweet search, user profiles
+├── twitter/
+│   └── SKILL.md          # Twitter/X.com — tweet search, user profiles
+└── trade-manager/
+    └── SKILL.md          # Trade Manager — stop-loss, take-profit, trailing stops
 ```
 
 ## Policy Controls
@@ -73,6 +76,8 @@ The wallet owner configures policies from the [Vincent dashboard](https://heyvin
 **Web research** — Agents search the web and news via Brave Search to gather real-time information, monitor topics, and inform decisions.
 
 **Social intelligence** — Agents search tweets, track user profiles, and monitor conversations on Twitter/X.com for sentiment and signals.
+
+**Automated risk management** — Agents set stop-loss, take-profit, and trailing stop rules on Polymarket positions that execute automatically when price conditions are met.
 
 **Human-in-the-loop workflows** — High-value actions trigger Telegram approval notifications for the wallet owner before execution.
 
