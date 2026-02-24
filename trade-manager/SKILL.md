@@ -281,8 +281,8 @@ When a user says:
 ## Important Notes
 
 - **Authorization:** All endpoints (except health) require the same Polymarket API key you use for the Polymarket skill
-- **Local only:** The API listens on `localhost:19000` — only accessible from the same VPS
+- **Integrated into Vincent backend:** No separate service or VPS — the Trade Manager runs inside the Vincent backend process with API endpoints under `/api/skills/polymarket/rules/...`
 - **No private keys:** Trade Manager uses Vincent API for all trades — your private key stays secure on Vincent's servers
 - **Policy enforcement:** All trades executed by Trade Manager still go through Vincent's policy checks
 - **Idempotency:** Rules only trigger once — even if the worker crashes and restarts
-- **Database location:** SQLite DB at `${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/trade-manager.db` (or configured path)
+- **Database:** Rules, positions, and events are stored in the Vincent PostgreSQL database via Prisma (same DB as everything else)
