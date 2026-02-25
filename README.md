@@ -21,7 +21,7 @@ Skills are drop-in modules. The agent creates its own wallet at runtime — no p
 | [polymarket](polymarket/) | Prediction market trading for agents. Browse markets, place bets, manage positions on Polymarket. Gasless via relayer. |
 | [brave-search](brave-search/) | Web and news search for agents via Brave Search. Pay-per-call ($0.005/query) through Vincent credit system. |
 | [twitter](twitter/) | Twitter/X.com data access for agents. Search tweets, look up profiles, retrieve recent tweets. Pay-per-call through Vincent credit system. |
-| [trading-engine](trading-engine/) | Automated stop-loss, take-profit, and trailing stops for Polymarket positions. Real-time price monitoring via WebSocket with automatic trade execution. |
+| [trading-engine](trading-engine/) | Strategy-driven automated trading for Polymarket. LLM-powered strategies with data monitors (web search, Twitter, newswire, price feeds) that evaluate a thesis and trade autonomously. Also includes standalone stop-loss, take-profit, and trailing stops. |
 
 ## How It Works
 
@@ -47,7 +47,7 @@ agent-skills/
 ├── twitter/
 │   └── SKILL.md          # Twitter/X.com — tweet search, user profiles
 └── trading-engine/
-    └── SKILL.md          # Trading Engine — stop-loss, take-profit, trailing stops
+    └── SKILL.md          # Trading Engine — LLM strategies, trade rules, stop-loss
 ```
 
 ## Policy Controls
@@ -77,7 +77,7 @@ The wallet owner configures policies from the [Vincent dashboard](https://heyvin
 
 **Social intelligence** — Agents search tweets, track user profiles, and monitor conversations on Twitter/X.com for sentiment and signals.
 
-**Automated risk management** — Agents set stop-loss, take-profit, and trailing stop rules on Polymarket positions that execute automatically when price conditions are met.
+**Automated trading strategies** — Agents create LLM-powered strategies that monitor web, Twitter, newswire, and price data, then trade autonomously based on a thesis. Standalone stop-loss, take-profit, and trailing stops provide additional risk management.
 
 **Human-in-the-loop workflows** — High-value actions trigger Telegram approval notifications for the wallet owner before execution.
 
