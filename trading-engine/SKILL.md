@@ -499,3 +499,203 @@ LLM invocation log entries:
 - **No private keys:** All trades use the Vincent API — your private key stays secure on Vincent's servers
 - **Policy enforcement:** All trades (both LLM and standalone rules) go through Vincent's policy checks
 - **Idempotency:** Rules only trigger once. LLM invocations are deduplicated by monitor state.
+
+---
+
+## Part 3: V2 Multi-Venue Strategies
+
+V2 extends the Trading Engine with multi-venue support, a driver-based monitoring system, thesis tracking, a 6-layer signal pipeline, advanced position sizing, and escalation policies. V2 strategies can trade across any supported venue (Polymarket, and more as adapters are added), not just Polymarket.
+
+### What V2 Adds Over V1
+
+| Feature | V1 | V2 |
+|---|---|---|
+| Venues | Polymarket only | Multi-venue (driver `sources` + venue adapters) |
+| Monitoring | Web search, Twitter, newswire, price triggers | Driver-based: weighted drivers with entities, keywords, embedding anchors, multiple sources |
+| Thesis | Alert prompt (free text) | Structured thesis: estimate, direction, confidence, reasoning |
+| Signal Pipeline | Monitor → LLM | 6-layer: Ingest → Filter → Score → Escalate → LLM → Execute |
+| Position Sizing | Fixed max trade USD | Edge-scaled, fixed, or Kelly criterion with portfolio-level limits |
+| Trade Rules | Separate standalone rules | Integrated auto-actions (stop-loss, take-profit, trailing stop, price delta triggers) |
+| Notifications | None | Webhook or Slack on trade or thesis change |
+
+### Core Concepts
+
+- **Instrument**: A tradeable asset on a venue. Defined by `id`, `type` (stock, perp, swap, binary, option), `venue`, and optional constraints (leverage, margin, liquidity, fees).
+- **Thesis**: Your directional view — `estimate` (target price/value), `direction` (long/short/neutral), `confidence` (0–1), and `reasoning`.
+- **Driver**: A named information source that feeds the signal pipeline. Each driver has a `weight`, `direction` (bullish/bearish/contextual), and `monitoring` config (entities, keywords, embedding anchor, sources, polling interval).
+- **Escalation Policy**: Controls when the LLM is woken up. `signalScoreThreshold` (minimum score to batch), `highConfidenceThreshold` (score that triggers immediate wake), `maxWakeFrequency` (e.g. "1 per 15m"), `batchWindow` (e.g. "5m").
+- **Trade Rules**: Entry rules (min edge, order type), exit rules (thesis invalidation triggers), auto-actions (stop-loss, take-profit, trailing stop, price delta triggers), and sizing rules (method, max position, portfolio %, max trades/day).
+
+### Strategy Lifecycle
+
+Same states as V1: `DRAFT` → `ACTIVE` → `PAUSED` → `ARCHIVED`
+
+### Create a V2 Strategy
+
+```bash
+npx @vincentai/cli@latest v2 create-strategy \
+  --key-id <KEY_ID> \
+  --name "BTC Multi-Venue Momentum" \
+  --config '{
+    "instruments": [
+      { "id": "btc-usd-perp", "type": "perp", "venue": "polymarket" }
+    ],
+    "thesis": {
+      "estimate": 105000,
+      "direction": "long",
+      "confidence": 0.7,
+      "reasoning": "ETF inflows accelerating, halving supply shock imminent"
+    },
+    "drivers": [
+      {
+        "name": "ETF Flow Monitor",
+        "weight": 2.0,
+        "direction": "bullish",
+        "monitoring": {
+          "entities": ["BlackRock", "Fidelity"],
+          "keywords": ["bitcoin ETF", "BTC inflow"],
+          "embeddingAnchor": "Bitcoin ETF institutional inflows",
+          "sources": ["web_search", "newswire"]
+        }
+      }
+    ],
+    "escalation": {
+      "signalScoreThreshold": 0.3,
+      "highConfidenceThreshold": 0.8,
+      "maxWakeFrequency": "1 per 15m",
+      "batchWindow": "5m"
+    },
+    "tradeRules": {
+      "entry": { "minEdge": 0.05, "orderType": "limit", "limitOffset": 0.01 },
+      "autoActions": { "stopLoss": -0.10, "takeProfit": 0.25, "trailingStop": -0.05 },
+      "exit": { "thesisInvalidation": ["ETF outflows exceed $500M/week"] },
+      "sizing": {
+        "method": "edgeScaled",
+        "maxPosition": 500,
+        "maxPortfolioPct": 20,
+        "maxTradesPerDay": 5,
+        "minTimeBetweenTrades": "30m"
+      }
+    },
+    "notifications": {
+      "onTrade": true,
+      "onThesisChange": true,
+      "channel": "none"
+    }
+  }'
+```
+
+**Parameters:**
+- `--name`: Strategy name
+- `--config`: Full V2StrategyConfig JSON (see Core Concepts above for structure)
+- `--data-source-secret-id`: Optional DATA_SOURCES secret for driver monitoring API calls
+- `--poll-interval`: Polling interval in minutes for driver monitoring (default: 15)
+
+### V2 Strategy Management
+
+```bash
+# List all V2 strategies
+npx @vincentai/cli@latest v2 list-strategies --key-id <KEY_ID>
+
+# Get strategy details
+npx @vincentai/cli@latest v2 get-strategy --key-id <KEY_ID> --strategy-id <ID>
+
+# Update a DRAFT strategy (pass only fields to change)
+npx @vincentai/cli@latest v2 update-strategy --key-id <KEY_ID> --strategy-id <ID> \
+  --name "Updated Name" --config '{ "thesis": { ... } }'
+
+# Activate (DRAFT → ACTIVE)
+npx @vincentai/cli@latest v2 activate --key-id <KEY_ID> --strategy-id <ID>
+
+# Pause (ACTIVE → PAUSED)
+npx @vincentai/cli@latest v2 pause --key-id <KEY_ID> --strategy-id <ID>
+
+# Resume (PAUSED → ACTIVE)
+npx @vincentai/cli@latest v2 resume --key-id <KEY_ID> --strategy-id <ID>
+
+# Archive (permanent)
+npx @vincentai/cli@latest v2 archive --key-id <KEY_ID> --strategy-id <ID>
+```
+
+### Portfolio & Monitoring
+
+```bash
+# Portfolio overview (positions + balances across all venues)
+npx @vincentai/cli@latest v2 portfolio --key-id <KEY_ID>
+
+# Signal log — raw signals from drivers
+npx @vincentai/cli@latest v2 signal-log --key-id <KEY_ID> --strategy-id <ID> --limit 50
+
+# Decision log — LLM thesis updates and trade decisions
+npx @vincentai/cli@latest v2 decision-log --key-id <KEY_ID> --strategy-id <ID> --limit 50
+
+# Trade log — order execution results
+npx @vincentai/cli@latest v2 trade-log --key-id <KEY_ID> --strategy-id <ID> --limit 50
+
+# Performance metrics (P&L, win rate, per-instrument breakdown)
+npx @vincentai/cli@latest v2 performance --key-id <KEY_ID> --strategy-id <ID>
+
+# Filter stats — signals passed/dropped at each pipeline layer
+npx @vincentai/cli@latest v2 filter-stats --key-id <KEY_ID> --strategy-id <ID>
+
+# Escalation stats — wake frequency, batch counts, threshold breaches
+npx @vincentai/cli@latest v2 escalation-stats --key-id <KEY_ID> --strategy-id <ID>
+```
+
+### Manual Overrides
+
+```bash
+# Place a manual order on any venue
+npx @vincentai/cli@latest v2 place-order --key-id <KEY_ID> \
+  --instrument-id <TOKEN_ID> --venue polymarket \
+  --side BUY --size 10 --order-type market
+
+# Place a limit order
+npx @vincentai/cli@latest v2 place-order --key-id <KEY_ID> \
+  --instrument-id <TOKEN_ID> --venue polymarket \
+  --side BUY --size 10 --order-type limit --limit-price 0.45
+
+# Cancel an order
+npx @vincentai/cli@latest v2 cancel-order --key-id <KEY_ID> \
+  --venue polymarket --order-id <ORDER_ID>
+
+# Close a position (opposite-side market order)
+npx @vincentai/cli@latest v2 close-position --key-id <KEY_ID> \
+  --instrument-id <TOKEN_ID> --venue polymarket
+
+# Emergency kill switch — pause all strategies + cancel all orders
+npx @vincentai/cli@latest v2 kill-switch --key-id <KEY_ID>
+```
+
+### Signal Pipeline Architecture
+
+V2 strategies process information through a 6-layer pipeline:
+
+1. **Ingest** — Raw data from driver sources (web search, Twitter, newswire, price feeds, RSS, Reddit, on-chain, filings, options flow)
+2. **Filter** — Deduplication and relevance filtering. Drops signals already seen or below quality threshold
+3. **Score** — Each signal is scored (0–1) based on driver weight, embedding similarity to the anchor, and entity/keyword matches
+4. **Escalate** — Scored signals are batched according to the escalation policy. Low-score signals accumulate in a batch window; high-confidence signals trigger immediate LLM wake
+5. **LLM** — The LLM evaluates batched signals against the current thesis. It can update the thesis, issue trade decisions, update driver states, or take no action
+6. **Execute** — Trade decisions pass through policy enforcement and are routed to the appropriate venue adapter for execution
+
+### V2 Best Practices
+
+1. **Start with `confidence: 0.5`** and let the LLM adjust — avoid overconfidence in the initial thesis
+2. **Weight drivers by importance** — a driver with `weight: 3.0` has 3x the signal score contribution of `weight: 1.0`
+3. **Use `edgeScaled` sizing** for adaptive position sizes based on thesis confidence and edge
+4. **Set `maxPortfolioPct`** to limit exposure — even high-confidence strategies shouldn't risk the entire portfolio
+5. **Monitor `filter-stats`** to tune the escalation policy — if too many signals are batched without action, lower `signalScoreThreshold`; if the LLM wakes too often, raise it
+6. **Use `thesisInvalidation` exit rules** to define explicit conditions that should trigger position exits
+7. **Use the kill switch** in emergencies — it pauses all strategies and cancels all open orders in one call
+
+### Example User Prompts (V2)
+
+When a user says:
+- **"Create a multi-venue strategy for BTC"** → Create V2 strategy with instruments, thesis, drivers
+- **"What's my portfolio across venues?"** → Call v2 portfolio
+- **"Show me the signal pipeline activity"** → Call signal-log, filter-stats
+- **"What has the LLM decided?"** → Call decision-log
+- **"How is my strategy performing?"** → Call performance
+- **"Place a manual buy order"** → Call v2 place-order
+- **"Emergency stop everything"** → Call v2 kill-switch
+- **"Pause my V2 strategy"** → Call v2 pause
