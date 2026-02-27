@@ -1,6 +1,14 @@
 ---
 name: Vincent - Twitter / X.com for agents
-description: Use this skill to search tweets, look up user profiles, and retrieve recent tweets from X.com (Twitter). Pay-per-call via Vincent credit system.
+description: |
+  Twitter/X.com data access for agents. Use this skill when users want to search tweets, look up
+  user profiles, or retrieve recent tweets. Pay-per-call via Vincent credit system.
+  Triggers on "search tweets", "twitter", "X.com", "look up user", "tweet search",
+  "twitter profile", "recent tweets".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -129,6 +137,44 @@ Every successful response includes a `_vincent` object with:
 ```
 
 Use `creditRemainingUsd` to warn the user when credit is running low.
+
+## Output Format
+
+Tweet search results:
+
+```json
+{
+  "data": [
+    {
+      "id": "123456789",
+      "text": "Tweet content here",
+      "created_at": "2026-02-26T12:00:00.000Z",
+      "author_id": "987654321",
+      "public_metrics": {
+        "like_count": 42,
+        "retweet_count": 10,
+        "reply_count": 5
+      }
+    }
+  ],
+  "_vincent": {
+    "costUsd": 0.01,
+    "creditRemainingUsd": 4.99
+  }
+}
+```
+
+User profile responses include `description`, `public_metrics` (followers/following counts), `profile_image_url`, and `verified`.
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `402 Insufficient Credit` | Credit balance is zero and no payment method on file | User must add credit at heyvincent.ai |
+| `429 Rate Limited` | Exceeded 60 requests/minute | Wait and retry with backoff |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the secret owner |
+| `User not found` | Username doesn't exist on Twitter | Verify the username spelling |
 
 ## Rate Limits
 

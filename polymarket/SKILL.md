@@ -1,6 +1,14 @@
 ---
 name: Vincent - Polymarket for agents
-description: Use this skill to create a Polymarket wallet for your agent and trade on prediction markets. Browse markets, place bets, manage positions — all without exposing private keys.
+description: |
+  Polymarket prediction market trading for agents. Use this skill when users want to create a
+  Polymarket wallet, browse markets, place bets, manage positions, or withdraw funds.
+  Triggers on "polymarket", "prediction market", "place bet", "browse markets", "trade prediction",
+  "polymarket wallet", "betting", "market odds".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -262,6 +270,57 @@ Parameters:
 
 If the amount exceeds the wallet's USDC balance, the server returns an `INSUFFICIENT_BALANCE` error. Policy checks (spending limits, approval thresholds) apply to withdrawals the same way they apply to bets.
 
+## Output Format
+
+CLI commands return JSON to stdout. Market search results:
+
+```json
+{
+  "markets": [
+    {
+      "question": "Will Bitcoin exceed $100k?",
+      "outcomes": ["Yes", "No"],
+      "outcomePrices": ["0.65", "0.35"],
+      "tokenIds": ["123456...", "789012..."],
+      "acceptingOrders": true
+    }
+  ]
+}
+```
+
+Bet placement:
+
+```json
+{
+  "orderId": "0x...",
+  "status": "MATCHED",
+  "side": "BUY",
+  "price": "0.55",
+  "size": "9.09"
+}
+```
+
+For trades requiring human approval:
+
+```json
+{
+  "status": "pending_approval",
+  "message": "Transaction requires owner approval via Telegram"
+}
+```
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `403 Policy Violation` | Trade blocked by server-side policy | User must adjust policies at heyvincent.ai |
+| `INSUFFICIENT_BALANCE` | Not enough USDC.e for the trade | Fund the wallet with USDC.e on Polygon |
+| `429 Rate Limited` | Too many requests | Wait and retry with backoff |
+| `pending_approval` | Trade exceeds approval threshold | User will receive Telegram notification to approve/deny |
+| `No orderbook exists` | Market closed or wrong token ID | Verify `acceptingOrders: true` and use `tokenIds[]`, not `conditionId` |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the wallet owner |
+
 ## Policies (Server-Side Enforcement)
 
 The wallet owner controls what the agent can do by setting policies via the claim URL at `https://heyvincent.ai`. All policies are enforced server-side by the Vincent API — the agent cannot bypass or modify them. If a trade violates a policy, the API rejects it. If a trade triggers an approval threshold, the API holds it and sends the wallet owner a Telegram notification for out-of-band human approval.
@@ -364,9 +423,4 @@ The CLI exchanges the token for a new API key, stores it automatically, and retu
 - If a transaction is rejected, it may be blocked by a server-side policy. Tell the user to check their policy settings at `https://heyvincent.ai`.
 - If a transaction requires approval, it will return `status: "pending_approval"`. The wallet owner will receive a Telegram notification to approve or deny.
 
-**Common Errors:**
-
-- `"No orderbook exists for the requested token id"` — The market is closed or you're using the wrong ID. Make sure:
-  - The market has `acceptingOrders: true`
-  - You're using a `tokenId` from the `tokenIds` array, not the `conditionId`
-  - The market hasn't already resolved
+See the **Error Handling** section above for a full list of common errors and resolutions.

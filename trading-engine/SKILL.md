@@ -1,3 +1,25 @@
+---
+name: Vincent - Trading Engine for agents
+description: |
+  Strategy-driven automated trading for Polymarket. Use this skill when users want to create
+  trading strategies, set stop-loss/take-profit/trailing stop rules, or manage automated trading.
+  Triggers on "trading strategy", "stop loss", "take profit", "trailing stop", "automated trading",
+  "trading engine", "trade rules", "strategy monitor".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
+homepage: https://heyvincent.ai
+source: https://github.com/HeyVincent-ai/Vincent
+metadata:
+  clawdbot:
+    homepage: https://heyvincent.ai
+    requires:
+      config:
+        - ${OPENCLAW_STATE_DIR:-$HOME/.openclaw}/credentials/agentwallet
+        - ./agentwallet
+---
+
 # Vincent Trading Engine - Strategy-Driven Automated Trading
 
 Use this skill to create and manage automated trading strategies for Polymarket prediction markets. The Trading Engine combines data monitoring (web search, Twitter, price feeds) with LLM-powered decision-making to automatically trade based on your thesis. It also includes standalone stop-loss, take-profit, and trailing stop rules that work without the LLM.
@@ -420,6 +442,55 @@ When a user says:
 - **"Pause my strategy"** → Pause the strategy
 - **"Make a new version with a different prompt"** → Duplicate, then update the draft
 - **"Set a 5% trailing stop"** → Create TRAILING_STOP rule
+
+## Output Format
+
+Strategy creation:
+
+```json
+{
+  "strategyId": "strat-123",
+  "name": "AI Token Momentum",
+  "status": "DRAFT",
+  "version": 1
+}
+```
+
+Rule creation:
+
+```json
+{
+  "ruleId": "rule-456",
+  "ruleType": "STOP_LOSS",
+  "triggerPrice": 0.40,
+  "status": "ACTIVE"
+}
+```
+
+LLM invocation log entries:
+
+```json
+{
+  "invocationId": "inv-789",
+  "strategyId": "strat-123",
+  "trigger": "web_search",
+  "actions": ["place_trade"],
+  "costUsd": 0.12,
+  "createdAt": "2026-02-26T12:00:00.000Z"
+}
+```
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `403 Policy Violation` | Trade blocked by server-side policy | User must adjust policies at heyvincent.ai |
+| `402 Insufficient Credit` | Not enough credit for LLM invocation | User must add credit at heyvincent.ai |
+| `INVALID_STATUS_TRANSITION` | Strategy can't transition to requested state | Check current status (e.g., only DRAFT can activate) |
+| `CIRCUIT_BREAKER_OPEN` | Polymarket API failures triggered circuit breaker | Wait for cooldown; check status command |
+| `429 Rate Limited` | Too many requests or concurrent LLM invocations | Wait and retry with backoff |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the wallet owner |
 
 ## Important Notes
 

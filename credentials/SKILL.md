@@ -1,6 +1,14 @@
 ---
 name: Vincent - Credentials for agents
-description: Use this skill to securely store credentials (API keys, passwords, tokens) and write them to .env files without exposing values in the agent's context.
+description: |
+  Secure credential management for agents. Use this skill when users need to store API keys,
+  passwords, OAuth tokens, or SSH keys and write them to .env files without exposing values.
+  Triggers on "store credentials", "API key", "manage secrets", "write to env", ".env file",
+  "credential", "password", "token storage".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -183,6 +191,37 @@ npx @vincentai/cli@latest secret env --key-id abc-123 --env-var ACME_PASSWORD --
 # ACME_USERNAME=alice
 # ACME_PASSWORD=hunter2
 ```
+
+## Output Format
+
+The `secret env` command outputs a confirmation JSON (without the credential value):
+
+```json
+{
+  "written": "ACME_API_KEY",
+  "path": "/path/to/.env",
+  "type": "API_KEY"
+}
+```
+
+The `secret create` command returns:
+
+```json
+{
+  "keyId": "abc-123",
+  "claimUrl": "https://heyvincent.ai/claim/...",
+  "secretId": "sec-456"
+}
+```
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `403 Overwrite Rejected` | A different API key set this credential's value | Secret owner must manage from the dashboard |
+| `404 Value Not Set` | Credential value hasn't been set yet | User must set the value via dashboard or agent sets via REST API |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the secret owner |
 
 ## Re-linking (Recovering API Access)
 

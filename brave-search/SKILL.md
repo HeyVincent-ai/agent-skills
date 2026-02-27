@@ -1,6 +1,14 @@
 ---
 name: Vincent - Brave Search for agents
-description: Use this skill to search the web and news using Brave Search. Pay-per-call via Vincent credit system.
+description: |
+  Web and news search powered by Brave Search. Use this skill when users want to search the web,
+  find news articles, or look up current information. Pay-per-call via Vincent credit system.
+  Triggers on "search the web", "web search", "brave search", "search news", "find information",
+  "look up", "current events".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -118,6 +126,39 @@ Every successful response includes a `_vincent` object with:
 ```
 
 Use `creditRemainingUsd` to warn the user when credit is running low.
+
+## Output Format
+
+Web search results:
+
+```json
+{
+  "web": {
+    "results": [
+      {
+        "title": "Article Title",
+        "url": "https://example.com/article",
+        "description": "A brief description of the article content."
+      }
+    ]
+  },
+  "_vincent": {
+    "costUsd": 0.005,
+    "creditRemainingUsd": 4.99
+  }
+}
+```
+
+News search results follow the same structure with additional `age` and `source` fields per result.
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `402 Insufficient Credit` | Credit balance is zero and no payment method on file | User must add credit at heyvincent.ai |
+| `429 Rate Limited` | Exceeded 60 requests/minute | Wait and retry with backoff |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the secret owner |
 
 ## Rate Limits
 

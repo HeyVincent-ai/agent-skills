@@ -1,6 +1,14 @@
 ---
 name: Vincent - A wallet for agents
-description: Use this skill to safely create a wallet the agent can use for transfers, swaps, and any EVM chain transaction. Also supports raw signing for Ethereum and Solana.
+description: |
+  The agent's wallet for EVM chain transactions and raw signing. Use this skill when users want to
+  create a wallet, transfer tokens, swap on DEXs, interact with smart contracts, or sign messages.
+  Triggers on "wallet", "create wallet", "transfer ETH", "swap tokens", "send transaction",
+  "check balance", "EVM wallet", "raw signer", "sign message".
+allowed-tools: Read, Write, Bash(npx:*, curl:*)
+version: 1.0.0
+author: HeyVincent <contact@heyvincent.ai>
+license: MIT
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -175,6 +183,54 @@ npx @vincentai/cli@latest wallet transfer-between status --key-id <KEY_ID> --rel
 - The destination secret can be an `EVM_WALLET` or `POLYMARKET_WALLET`.
 - The server verifies you own both the source and destination secrets — transfers to secrets you don't own are rejected.
 - Transfers are subject to the same server-side policies as regular transfers (spending limits, approval thresholds, etc.).
+
+## Output Format
+
+CLI commands return JSON to stdout. Successful responses include the relevant data:
+
+```json
+{
+  "address": "0x...",
+  "balances": [
+    {
+      "token": "ETH",
+      "balance": "0.5",
+      "usdValue": "1250.00"
+    }
+  ]
+}
+```
+
+Transaction commands return:
+
+```json
+{
+  "transactionHash": "0x...",
+  "status": "confirmed"
+}
+```
+
+For transactions requiring human approval:
+
+```json
+{
+  "status": "pending_approval",
+  "message": "Transaction requires owner approval via Telegram"
+}
+```
+
+## Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
+| `403 Policy Violation` | Transaction blocked by server-side policy | User must adjust policies at heyvincent.ai |
+| `400 Insufficient Balance` | Not enough tokens for the transfer | Check balances before transferring |
+| `429 Rate Limited` | Too many requests | Wait and retry with backoff |
+| `pending_approval` | Transaction exceeds approval threshold | User will receive Telegram notification to approve/deny |
+| `Key not found` | API key was revoked or never created | Re-link with a new token from the wallet owner |
+
+If a transaction is rejected, inform the user to check their policy settings at `https://heyvincent.ai`.
 
 ## Policies (Server-Side Enforcement)
 
