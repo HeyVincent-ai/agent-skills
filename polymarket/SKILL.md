@@ -5,7 +5,7 @@ description: |
   Polymarket wallet, browse markets, place bets, manage positions, or withdraw funds.
   Triggers on "polymarket", "prediction market", "place bet", "browse markets", "trade prediction",
   "polymarket wallet", "betting", "market odds".
-allowed-tools: Read, Write, Bash(npx:*, curl:*)
+allowed-tools: Read, Write, Bash(npx:@vincentai/cli*)
 version: 1.0.0
 author: HeyVincent <contact@heyvincent.ai>
 license: MIT

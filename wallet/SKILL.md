@@ -5,7 +5,7 @@ description: |
   create a wallet, transfer tokens, swap on DEXs, interact with smart contracts, or sign messages.
   Triggers on "wallet", "create wallet", "transfer ETH", "swap tokens", "send transaction",
   "check balance", "EVM wallet", "raw signer", "sign message".
-allowed-tools: Read, Write, Bash(npx:*, curl:*)
+allowed-tools: Read, Write, Bash(npx:@vincentai/cli*)
 version: 1.0.0
 author: HeyVincent <contact@heyvincent.ai>
 license: MIT

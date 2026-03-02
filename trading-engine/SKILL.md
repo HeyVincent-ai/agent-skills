@@ -5,7 +5,7 @@ description: |
   trading strategies, set stop-loss/take-profit/trailing stop rules, or manage automated trading.
   Triggers on "trading strategy", "stop loss", "take profit", "trailing stop", "automated trading",
   "trading engine", "trade rules", "strategy monitor".
-allowed-tools: Read, Write, Bash(npx:*, curl:*)
+allowed-tools: Read, Write, Bash(npx:@vincentai/cli*)
 version: 1.0.0
 author: HeyVincent <contact@heyvincent.ai>
 license: MIT

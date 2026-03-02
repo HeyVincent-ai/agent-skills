@@ -5,7 +5,7 @@ description: |
   find news articles, or look up current information. Pay-per-call via Vincent credit system.
   Triggers on "search the web", "web search", "brave search", "search news", "find information",
   "look up", "current events".
-allowed-tools: Read, Write, Bash(npx:*, curl:*)
+allowed-tools: Read, Write, Bash(npx:@vincentai/cli*), Bash(jq:*), Bash(bc:*)
 version: 1.0.0
 author: HeyVincent <contact@heyvincent.ai>
 license: MIT
@@ -174,6 +174,62 @@ npx @vincentai/cli@latest secret relink --token <TOKEN_FROM_USER>
 ```
 
 The CLI exchanges the token for a new API key, stores it automatically, and returns the new `keyId`. Re-link tokens are one-time use and expire after 10 minutes.
+
+## Adding Credits
+
+When your credit balance runs low, you can purchase more credits autonomously using USDC on Base via the x402 payment protocol — no human intervention required.
+
+**Available tiers:** $1, $5, $10, $25, $50, $100
+
+### Check Balance
+
+```bash
+npx @vincentai/cli@latest credits balance --key-id <KEY_ID>
+```
+
+### Purchase Credits via x402 (USDC on Base)
+
+```bash
+npx @vincentai/cli@latest credits add --key-id <KEY_ID> --amount 10
+```
+
+**How it works:**
+
+1. The CLI sends a POST request to the x402 credit endpoint
+2. The server returns HTTP 402 with a dynamic USDC deposit address on Base
+3. The CLI signs the payment using your agent's wallet
+4. The CLI retries the request with the payment proof
+5. The server verifies the payment and adds credits to your account
+
+**Requirements:**
+- An x402-compatible wallet with USDC on Base (chain ID 8453)
+- Your Vincent DATA_SOURCES API key
+
+### Purchase Credits via Card (Human)
+
+```bash
+npx @vincentai/cli@latest credits checkout --key-id <KEY_ID>
+```
+
+Returns a Stripe Checkout URL. Share this with the user to complete payment with a card.
+
+### MCP Tools
+
+| Tool | Description |
+| --- | --- |
+| `vincent_credit_balance` | Check current credit balance and top-up options |
+| `vincent_add_credits` | Get x402 payment instructions for purchasing credits |
+
+### Auto-Replenish Pattern
+
+For long-running agents, check your balance before expensive operations and top up when low:
+
+```bash
+BALANCE=$(npx @vincentai/cli@latest credits balance --key-id <KEY_ID> --json | jq -r '.balance')
+if (( $(echo "$BALANCE < 2.00" | bc -l) )); then
+  npx @vincentai/cli@latest credits add --key-id <KEY_ID> --amount 10
+fi
+```
 
 ## Important Notes
 

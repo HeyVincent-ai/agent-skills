@@ -5,7 +5,7 @@ description: |
   passwords, OAuth tokens, or SSH keys and write them to .env files without exposing values.
   Triggers on "store credentials", "API key", "manage secrets", "write to env", ".env file",
   "credential", "password", "token storage".
-allowed-tools: Read, Write, Bash(npx:*, curl:*)
+allowed-tools: Read, Write, Bash(npx:@vincentai/cli*)
 version: 1.0.0
 author: HeyVincent <contact@heyvincent.ai>
 license: MIT
@@ -43,7 +43,7 @@ This skill is designed for **keeping credentials out of the agent's context wind
 **Key lifecycle:**
 
 - **Creation**: The agent runs `secret create` with `--type CREDENTIALS` — the CLI stores the API key automatically and returns a `keyId` and `claimUrl`.
-- **Value set**: The user sets the credential value via the dashboard after claiming, or the agent sets it via the REST API.
+- **Value set**: The user sets the credential value via the dashboard after claiming, or the agent sets it via the CLI.
 - **Write to .env**: The agent runs `secret env` to write the value to a `.env` file without exposing it.
 - **Claim**: The human operator uses the claim URL to take ownership and manage the secret from the dashboard.
 - **Revocation**: The secret owner can revoke the agent's API key at any time from `https://heyvincent.ai`.
@@ -98,24 +98,18 @@ After creating, tell the user:
 
 The user claims the secret using the claim URL, then sets the credential value from the dashboard. This keeps the value completely out of the agent's hands.
 
-**Option B: Agent sets via REST API**
+**Option B: Agent sets via CLI**
 
 For agent-first workflows where the agent has the credential (e.g. it obtained an API key from a service):
 
 ```bash
-curl -X PATCH https://heyvincent.ai/api/secrets/<SECRET_ID>/value/agent \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"value": {"username": "alice", "password": "hunter2"}}'
+npx @vincentai/cli@latest secret set-value --key-id <KEY_ID> --value '{"username": "alice", "password": "hunter2"}'
 ```
 
 For simple string types (`API_KEY`, `SSH_KEY`, `OAUTH_TOKEN`):
 
 ```bash
-curl -X PATCH https://heyvincent.ai/api/secrets/<SECRET_ID>/value/agent \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"value": "sk-my-third-party-api-key"}'
+npx @vincentai/cli@latest secret set-value --key-id <KEY_ID> --value "sk-my-third-party-api-key"
 ```
 
 ### 4. Write to .env File
@@ -220,7 +214,7 @@ The `secret create` command returns:
 |-------|-------|------------|
 | `401 Unauthorized` | Invalid or missing API key | Check that the key-id is correct; re-link if needed |
 | `403 Overwrite Rejected` | A different API key set this credential's value | Secret owner must manage from the dashboard |
-| `404 Value Not Set` | Credential value hasn't been set yet | User must set the value via dashboard or agent sets via REST API |
+| `404 Value Not Set` | Credential value hasn't been set yet | User must set the value via dashboard or agent sets via CLI |
 | `Key not found` | API key was revoked or never created | Re-link with a new token from the secret owner |
 
 ## Re-linking (Recovering API Access)
