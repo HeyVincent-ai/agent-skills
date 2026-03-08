@@ -1,6 +1,6 @@
 ---
 name: Vincent - HyperLiquid for agents
-description: Use this skill to create a HyperLiquid perpetuals wallet for your agent and trade perps. Get prices, place market and limit orders, manage positions — all without exposing private keys.
+description: Use this skill to create a HyperLiquid perpetuals and spot wallet for your agent. Trade perps, manage spot balances, transfer USDC between sub-accounts, get prices, place orders — all without exposing private keys.
 homepage: https://heyvincent.ai
 source: https://github.com/HeyVincent-ai/Vincent
 metadata:
@@ -14,7 +14,7 @@ metadata:
 
 # Vincent - HyperLiquid for agents
 
-Use this skill to create a HyperLiquid perpetuals wallet for your agent and trade perps. The generated EOA **is** the HyperLiquid account — fund it directly via the HL bridge and start trading immediately with no Safe deployment or collateral approval steps.
+Use this skill to create a HyperLiquid perpetuals and spot wallet for your agent. Trade perps, check spot balances, and transfer USDC between perps and spot sub-accounts. The generated EOA **is** the HyperLiquid account — fund it directly via the HL bridge and start trading immediately with no Safe deployment or collateral approval steps.
 
 **The agent never sees the private key.** All operations are executed server-side. The agent receives a scoped API key that can only perform actions permitted by the wallet owner's policies.
 
@@ -76,10 +76,34 @@ npx @vincentai/cli@latest hyperliquid balance --key-id <KEY_ID>
 Returns:
 
 - `walletAddress` — the EOA address
-- `accountValue` — total account value in USD (cross-margin)
+- `accountValue` — total perps account value in USD (cross-margin)
+- `withdrawable` — USDC available to withdraw from the perps account
 - `positions` — array of open perpetual positions
+- `spotBalances` — array of spot token balances (each with `coin`, `token`, `hold`, `total`)
 
-### 4. Fund the Wallet
+### 4. Transfer Between Perps and Spot
+
+HyperLiquid has separate perps and spot sub-accounts. USDC must be in the correct sub-account before trading. Use `internal-transfer` to move USDC between them.
+
+```bash
+# Move 100 USDC from spot → perps (needed before perp trading)
+npx @vincentai/cli@latest hyperliquid internal-transfer --key-id <KEY_ID> --amount 100 --to-perp true
+
+# Move 50 USDC from perps → spot (needed before spot trading)
+npx @vincentai/cli@latest hyperliquid internal-transfer --key-id <KEY_ID> --amount 50 --to-perp false
+```
+
+Parameters:
+
+- `--amount`: USDC amount to transfer (string, numeric)
+- `--to-perp`: `true` = spot→perps, `false` = perps→spot
+
+**Response codes:**
+- `200` — `status: "executed"` — transfer completed
+- `202` — `status: "pending_approval"` (human approval required by policy)
+- `403` — `status: "denied"` (rejected by policy)
+
+### 5. Fund the Wallet
 
 Deposit USDC to the EOA address via:
 
@@ -88,7 +112,7 @@ Deposit USDC to the EOA address via:
 
 Minimum for a BTC perp trade: **$2 USDC** (covers $10 notional at 20x default leverage + taker fees).
 
-### 5. Browse Markets
+### 6. Browse Markets
 
 ```bash
 npx @vincentai/cli@latest hyperliquid markets --key-id <KEY_ID>
@@ -96,7 +120,7 @@ npx @vincentai/cli@latest hyperliquid markets --key-id <KEY_ID>
 
 Returns a JSON object mapping coin names to mid prices (e.g. `{"BTC": "105234.5", "ETH": "3412.0", ...}`).
 
-### 6. Get Order Book
+### 7. Get Order Book
 
 ```bash
 npx @vincentai/cli@latest hyperliquid orderbook --key-id <KEY_ID> --coin BTC
@@ -104,7 +128,7 @@ npx @vincentai/cli@latest hyperliquid orderbook --key-id <KEY_ID> --coin BTC
 
 Returns `levels` — a two-element array `[bids, asks]`. Each entry is `[price, size, numOrders]`. Use `levels[1][0][0]` for best ask, `levels[0][0][0]` for best bid.
 
-### 7. Place a Trade
+### 8. Place a Trade
 
 ```bash
 # Market buy (IoC — fills immediately or cancels)
@@ -139,7 +163,7 @@ Parameters:
 - `202` — `status: "pending_approval"` (human approval required by policy)
 - `403` — `status: "denied"` (rejected by policy)
 
-### 8. View Open Orders
+### 9. View Open Orders
 
 ```bash
 # All open orders
@@ -149,7 +173,7 @@ npx @vincentai/cli@latest hyperliquid open-orders --key-id <KEY_ID>
 npx @vincentai/cli@latest hyperliquid open-orders --key-id <KEY_ID> --coin BTC
 ```
 
-### 9. View Trade History
+### 10. View Trade History
 
 ```bash
 # All fills
@@ -159,7 +183,7 @@ npx @vincentai/cli@latest hyperliquid trades --key-id <KEY_ID>
 npx @vincentai/cli@latest hyperliquid trades --key-id <KEY_ID> --coin ETH
 ```
 
-### 10. Cancel Orders
+### 11. Cancel Orders
 
 ```bash
 # Cancel a specific order (requires coin and numeric order ID)
@@ -204,29 +228,36 @@ Re-link tokens are one-time use and expire after 10 minutes.
 
 ```bash
 # 1. Create wallet
-npx @vincentai/cli@latest secret create --type HYPERLIQUID_WALLET --memo "HL perp wallet"
+npx @vincentai/cli@latest secret create --type HYPERLIQUID_WALLET --memo "HL wallet"
 # → returns keyId, walletAddress, claimUrl
 
 # 2. Tell user: "Fund <walletAddress> on HyperLiquid with USDC, then I can trade."
 
-# 3. Check balance after funding
+# 3. Check balance after funding (returns both perps and spot balances)
 npx @vincentai/cli@latest hyperliquid balance --key-id <KEY_ID>
+# → accountValue shows perps balance, spotBalances shows spot holdings
 
-# 4. Get BTC mid price
+# 4. Transfer USDC between sub-accounts if needed
+# Move 100 USDC from spot → perps before perp trading:
+npx @vincentai/cli@latest hyperliquid internal-transfer --key-id <KEY_ID> --amount 100 --to-perp true
+# Move 50 USDC from perps → spot before spot trading:
+npx @vincentai/cli@latest hyperliquid internal-transfer --key-id <KEY_ID> --amount 50 --to-perp false
+
+# 5. Get BTC mid price
 npx @vincentai/cli@latest hyperliquid markets --key-id <KEY_ID>
 
-# 5. Get order book to find best ask
+# 6. Get order book to find best ask
 npx @vincentai/cli@latest hyperliquid orderbook --key-id <KEY_ID> --coin BTC
 # → levels[1][0][0] is best ask, e.g. "105200.0"
 
-# 6. Open long — 0.5% above ask to ensure IoC fill
+# 7. Open long — 0.5% above ask to ensure IoC fill
 npx @vincentai/cli@latest hyperliquid trade --key-id <KEY_ID> \
   --coin BTC --is-buy true --sz 0.0001 --limit-px 105726 --order-type market
 
-# 7. Check fills
+# 8. Check fills
 npx @vincentai/cli@latest hyperliquid trades --key-id <KEY_ID> --coin BTC
 
-# 8. Close long — 0.5% below bid
+# 9. Close long — 0.5% below bid
 npx @vincentai/cli@latest hyperliquid orderbook --key-id <KEY_ID> --coin BTC
 npx @vincentai/cli@latest hyperliquid trade --key-id <KEY_ID> \
   --coin BTC --is-buy false --sz 0.0001 --limit-px 104674 --order-type market --reduce-only
@@ -241,6 +272,7 @@ All CLI commands return JSON to stdout.
 {
   "walletAddress": "0x...",
   "accountValue": "105.23",
+  "withdrawable": "95.00",
   "positions": [
     {
       "position": {
@@ -253,6 +285,14 @@ All CLI commands return JSON to stdout.
         "leverage": { "type": "cross", "value": 20 }
       },
       "type": "oneWay"
+    }
+  ],
+  "spotBalances": [
+    {
+      "coin": "USDC",
+      "token": 0,
+      "hold": "0.0",
+      "total": "50.0"
     }
   ]
 }
@@ -309,6 +349,32 @@ All CLI commands return JSON to stdout.
   "status": "denied",
   "transactionLogId": "clx...",
   "walletAddress": "0x...",
+  "reason": "Exceeds daily spending limit"
+}
+```
+
+**internal-transfer (executed):**
+```json
+{
+  "status": "executed",
+  "transactionLogId": "clx..."
+}
+```
+
+**internal-transfer (pending approval):**
+```json
+{
+  "status": "pending_approval",
+  "transactionLogId": "clx...",
+  "reason": "Exceeds approval threshold"
+}
+```
+
+**internal-transfer (denied):**
+```json
+{
+  "status": "denied",
+  "transactionLogId": "clx...",
   "reason": "Exceeds daily spending limit"
 }
 ```
@@ -373,7 +439,7 @@ Empty object on success. Any non-zero exit code indicates failure.
 ## Important Notes
 
 - **No gas required.** HyperLiquid L1 is gasless — all perp trades settle natively.
-- **Single account, cross-margin, no sub-accounts.** The generated EOA is a standalone HL account operating entirely in cross-margin mode. All positions and collateral share one pool. HL sub-accounts are not created or used. Deposits go directly to this address.
+- **Perps and spot sub-accounts.** The generated EOA has both a perps sub-account (cross-margin) and a spot sub-account. Use `internal-transfer` to move USDC between them. Deposits via the HL bridge land in the perps account by default.
 - **Never try to access raw secret values.** The private key stays server-side.
 - Always share the claim URL with the user after creating a wallet.
 - For market orders, always set `limitPx` slightly outside the best price (`* 1.005` for buys, `* 0.995` for sells) to guarantee IoC fill at the current market price.
