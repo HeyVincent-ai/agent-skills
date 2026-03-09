@@ -1,7 +1,7 @@
 ---
 name: Vincent - Trading Engine for agents
 description: |
-  Strategy-driven automated trading for Polymarket. Use this skill when users want to create
+  Strategy-driven automated trading for Polymarket and HyperLiquid. Use this skill when users want to create
   trading strategies, set stop-loss/take-profit/trailing stop rules, or manage automated trading.
   Triggers on "trading strategy", "stop loss", "take profit", "trailing stop", "automated trading",
   "trading engine", "trade rules", "strategy monitor".
@@ -22,7 +22,7 @@ metadata:
 
 # Vincent Trading Engine - Strategy-Driven Automated Trading
 
-Use this skill to create and manage automated trading strategies for Polymarket prediction markets. The Trading Engine combines driver-based monitoring (web search, Twitter, newswire, price feeds) with a signal pipeline and LLM-powered decision-making to automatically trade based on your thesis. It also includes standalone stop-loss, take-profit, and trailing stop rules that work without the LLM.
+Use this skill to create and manage automated trading strategies for Polymarket prediction markets and HyperLiquid perpetuals/spot. The Trading Engine combines driver-based monitoring (web search, Twitter, newswire, price feeds) with a signal pipeline and LLM-powered decision-making to automatically trade based on your thesis. It also includes standalone stop-loss, take-profit, and trailing stop rules that work without the LLM.
 
 All commands use the `@vincentai/cli` package.
 
@@ -38,14 +38,15 @@ All commands use the `@vincentai/cli` package.
 - Integrated into the Vincent backend (no separate service to run)
 - Strategy endpoints under `/api/skills/polymarket/strategies/...`
 - Trade rule endpoints under `/api/skills/polymarket/rules/...`
-- Uses the same API key as the Polymarket skill
+- HyperLiquid rules use `venue: "hyperliquid"` and route through the HL adapter
+- Uses the same API key as the Polymarket or HyperLiquid skill (depending on venue)
 - All trades go through Vincent's policy-enforced pipeline
 - LLM costs are metered and deducted from the user's credit balance
 - Every LLM invocation is recorded with full audit trail (tokens, cost, actions, duration)
 
 ## Security Model
 
-- **LLM cannot bypass policies** — all trades go through `polymarketSkill.placeBet()` which enforces spending limits, approval thresholds, and allowlists
+- **LLM cannot bypass policies** — all trades go through the venue's policy-enforced skill (`polymarketSkill.placeBet()` or `hyperliquidSkill.trade()`) which enforces spending limits, approval thresholds, and allowlists
 - **Backend-side LLM key** — the OpenRouter API key never leaves the server. Agents and users cannot invoke the LLM directly
 - **Credit gating** — no LLM invocation without sufficient credit balance
 - **Tool constraints** — the LLM's available tools are controlled by the strategy's `config.tools` settings. If `canTrade: false`, the trade tool is not provided
@@ -93,7 +94,8 @@ npx @vincentai/cli@latest trading-engine create-strategy \
   --name "BTC Momentum" \
   --config '{
     "instruments": [
-      { "id": "btc-usd-perp", "type": "perp", "venue": "polymarket" }
+      { "id": "btc-usd-perp", "type": "perp", "venue": "polymarket" },
+      { "id": "BTC", "type": "perp", "venue": "hyperliquid" }
     ],
     "thesis": {
       "estimate": 105000,
@@ -381,26 +383,39 @@ npx @vincentai/cli@latest trading-engine status --key-id <KEY_ID>
 Automatically sell a position if price drops below a threshold:
 
 ```bash
+# Polymarket — triggerPrice is 0–1 (outcome token price)
 npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
   --market-id 0x123... --token-id 456789 \
   --rule-type STOP_LOSS --trigger-price 0.40
+
+# HyperLiquid — triggerPrice is absolute USD price, marketId and tokenId are the coin name
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id BTC --token-id BTC \
+  --rule-type STOP_LOSS --trigger-price 95000
 ```
 
 **Parameters:**
 
-- `--market-id`: The Polymarket condition ID (from market data)
-- `--token-id`: The outcome token ID you hold (from market data)
+- `--venue`: `polymarket` (default) or `hyperliquid`
+- `--market-id`: Polymarket condition ID, or coin name for HyperLiquid (e.g. `BTC`, `ETH`)
+- `--token-id`: Polymarket outcome token ID, or coin name for HyperLiquid
 - `--rule-type`: `STOP_LOSS` (sells if price <= trigger), `TAKE_PROFIT` (sells if price >= trigger), or `TRAILING_STOP`
-- `--trigger-price`: Price threshold between 0 and 1 (e.g., 0.40 = 40 cents)
+- `--trigger-price`: Price threshold — 0 to 1 for Polymarket, absolute USD price for HyperLiquid
 
 ### Create a Take-Profit Rule
 
 Automatically sell a position if price rises above a threshold:
 
 ```bash
+# Polymarket
 npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
   --market-id 0x123... --token-id 456789 \
   --rule-type TAKE_PROFIT --trigger-price 0.75
+
+# HyperLiquid
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id ETH --token-id ETH \
+  --rule-type TAKE_PROFIT --trigger-price 4500
 ```
 
 ### Create a Trailing Stop Rule
@@ -408,9 +423,15 @@ npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
 A trailing stop moves the stop price up as the price rises:
 
 ```bash
+# Polymarket
 npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
   --market-id 0x123... --token-id 456789 \
   --rule-type TRAILING_STOP --trigger-price 0.45 --trailing-percent 5
+
+# HyperLiquid
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id SOL --token-id SOL \
+  --rule-type TRAILING_STOP --trigger-price 170 --trailing-percent 5
 ```
 
 **Trailing stop behavior:**
@@ -484,6 +505,8 @@ npx @vincentai/cli@latest trading-engine events --key-id <KEY_ID> --limit 50 --o
 ---
 
 ## Complete Workflow: Strategy + Trade Rules
+
+### Polymarket Workflow
 
 ### Step 1: Place a bet with the Polymarket skill
 
@@ -572,14 +595,89 @@ npx @vincentai/cli@latest trading-engine costs --key-id <KEY_ID>
 npx @vincentai/cli@latest trading-engine performance --key-id <KEY_ID> --strategy-id <STRATEGY_ID>
 ```
 
+### HyperLiquid Workflow
+
+### Step 1: Open a perp position with the HyperLiquid skill
+
+```bash
+npx @vincentai/cli@latest hyperliquid trade --key-id <KEY_ID> \
+  --coin BTC --is-buy true --sz 0.001 --limit-px 106000 --order-type market
+```
+
+### Step 2: Set a stop-loss rule for the position
+
+```bash
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id BTC --token-id BTC \
+  --rule-type STOP_LOSS --trigger-price 95000
+```
+
+### Step 3: Set a take-profit rule
+
+```bash
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id BTC --token-id BTC \
+  --rule-type TAKE_PROFIT --trigger-price 115000
+```
+
+### Step 4: Create a strategy to monitor your thesis
+
+```bash
+npx @vincentai/cli@latest trading-engine create-strategy --key-id <KEY_ID> \
+  --name "BTC Perp Momentum" \
+  --config '{
+    "instruments": [
+      { "id": "BTC", "type": "perp", "venue": "hyperliquid" }
+    ],
+    "thesis": {
+      "estimate": 115000,
+      "direction": "long",
+      "confidence": 0.7,
+      "reasoning": "ETF inflows accelerating, halving supply shock imminent"
+    },
+    "drivers": [
+      {
+        "name": "ETF News",
+        "weight": 2.0,
+        "direction": "bullish",
+        "monitoring": {
+          "keywords": ["bitcoin ETF inflows", "bitcoin institutional"],
+          "sources": ["web_search", "newswire"]
+        }
+      }
+    ],
+    "escalation": {
+      "signalScoreThreshold": 0.3,
+      "highConfidenceThreshold": 0.8,
+      "maxWakeFrequency": "1 per 15m",
+      "batchWindow": "5m"
+    },
+    "tradeRules": {
+      "entry": { "minEdge": 0.05 },
+      "autoActions": { "stopLoss": -0.10, "takeProfit": 0.25, "trailingStop": -0.05 },
+      "sizing": { "method": "edgeScaled", "maxPosition": 500, "maxPortfolioPct": 20, "maxTradesPerDay": 5 }
+    }
+  }' \
+  --poll-interval 10
+```
+
+### Step 5: Activate and monitor
+
+```bash
+npx @vincentai/cli@latest trading-engine activate --key-id <KEY_ID> --strategy-id <STRATEGY_ID>
+npx @vincentai/cli@latest trading-engine events --key-id <KEY_ID>
+```
+
+---
+
 ## Background Workers
 
 The Trading Engine runs two independent background workers:
 
-1. **Strategy Engine Worker** — Ticks every 30s, checks which strategy drivers are due, fetches new data, scores signals, and invokes the LLM when the escalation threshold is met. Also hooks into the Polymarket WebSocket for real-time price trigger evaluation.
-2. **Trade Rule Worker** — Monitors prices in real-time via WebSocket (with polling fallback), evaluates stop-loss/take-profit/trailing stop rules, executes trades when conditions are met.
+1. **Strategy Engine Worker** — Ticks every 30s, checks which strategy drivers are due, fetches new data, scores signals, and invokes the LLM when the escalation threshold is met. Hooks into venue WebSocket feeds (Polymarket and HyperLiquid) for real-time price trigger evaluation.
+2. **Trade Rule Worker** — Monitors prices in real-time via WebSocket (with polling fallback), evaluates stop-loss/take-profit/trailing stop rules, executes trades when conditions are met. Supports both Polymarket and HyperLiquid venues.
 
-**Circuit Breaker:** Both workers use a circuit breaker pattern. If the Polymarket API fails 5+ consecutive times, the worker pauses and resumes after a cooldown. Check status with:
+**Circuit Breaker:** Both workers use a circuit breaker pattern. If a venue API fails 5+ consecutive times, the worker pauses and resumes after a cooldown. Check status with:
 
 ```bash
 npx @vincentai/cli@latest trading-engine status --key-id <KEY_ID>
@@ -661,7 +759,7 @@ LLM invocation log entries:
 
 ## Important Notes
 
-- **Authorization:** All endpoints require the same Polymarket API key used for the Polymarket skill
+- **Authorization:** All endpoints require the API key for the relevant venue (Polymarket or HyperLiquid wallet key)
 - **Local only:** The API listens on `localhost:19000` — only accessible from the same VPS
 - **No private keys:** All trades use the Vincent API — your private key stays secure on Vincent's servers
 - **Policy enforcement:** All trades (both LLM and standalone rules) go through Vincent's policy checks

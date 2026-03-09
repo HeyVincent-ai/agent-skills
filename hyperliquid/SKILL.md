@@ -196,6 +196,60 @@ npx @vincentai/cli@latest hyperliquid cancel-all --key-id <KEY_ID>
 npx @vincentai/cli@latest hyperliquid cancel-all --key-id <KEY_ID> --coin ETH
 ```
 
+## Trading Engine: Stop-Loss, Take-Profit & Trailing Stop
+
+The **Trading Engine** fully supports HyperLiquid. You can set automated stop-loss, take-profit, and trailing stop rules on any HL position. Rules execute automatically when price conditions are met — no LLM involved.
+
+For HyperLiquid rules, use `--venue hyperliquid` and set `--market-id` / `--token-id` to the coin name (e.g. `BTC`, `ETH`, `SOL`). The `--trigger-price` is an absolute USD price (not 0–1 like Polymarket).
+
+### Stop-Loss
+
+```bash
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id BTC --token-id BTC \
+  --rule-type STOP_LOSS --trigger-price 95000
+```
+
+Sells the position if BTC drops to $95,000.
+
+### Take-Profit
+
+```bash
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id ETH --token-id ETH \
+  --rule-type TAKE_PROFIT --trigger-price 4500
+```
+
+Sells the position if ETH rises to $4,500.
+
+### Trailing Stop
+
+```bash
+npx @vincentai/cli@latest trading-engine create-rule --key-id <KEY_ID> \
+  --venue hyperliquid --market-id SOL --token-id SOL \
+  --rule-type TRAILING_STOP --trigger-price 170 --trailing-percent 5
+```
+
+Stop price ratchets up as SOL rises. Sells if SOL drops 5% from its peak.
+
+### Manage Rules
+
+```bash
+# List all rules
+npx @vincentai/cli@latest trading-engine list-rules --key-id <KEY_ID>
+
+# Update trigger price
+npx @vincentai/cli@latest trading-engine update-rule --key-id <KEY_ID> --rule-id <RULE_ID> --trigger-price 98000
+
+# Cancel a rule
+npx @vincentai/cli@latest trading-engine delete-rule --key-id <KEY_ID> --rule-id <RULE_ID>
+
+# View rule events
+npx @vincentai/cli@latest trading-engine events --key-id <KEY_ID>
+```
+
+For full strategy docs (LLM-powered strategies, signal pipeline, drivers), see the **Trading Engine** skill.
+
 ## Policies (Server-Side Enforcement)
 
 The wallet owner controls what the agent can do by setting policies at `https://heyvincent.ai`. All policies are enforced server-side before any trade executes.
